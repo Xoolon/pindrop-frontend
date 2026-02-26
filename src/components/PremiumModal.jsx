@@ -163,13 +163,13 @@ const m = {
     backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
     zIndex: 10000,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '24px',
+    padding: '16px', // reduced from 24px for more space on small screens
   },
   modal: {
     background: 'linear-gradient(160deg, #131318, #0f0f14)',
     border: '1px solid rgba(255,255,255,0.09)',
     borderRadius: '24px',
-    padding: '36px 28px 28px',
+    padding: '32px 20px 24px', // adjusted padding
     maxWidth: '420px', width: '100%',
     position: 'relative', textAlign: 'center',
     boxShadow: '0 40px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(245,200,66,0.07)',
@@ -181,7 +181,7 @@ const m = {
     borderRadius: '8px', cursor: 'pointer', fontSize: '13px',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  header: { marginBottom: '24px' },
+  header: { marginBottom: '20px' },
   crownWrap: { marginBottom: '10px' },
   crown: {
     fontSize: '38px',
@@ -194,10 +194,14 @@ const m = {
   },
   sub: { fontSize: '13px', color: '#555560', fontFamily: 'DM Sans, sans-serif' },
   plans: {
-    display: 'flex', gap: '10px', marginBottom: '18px',
+    display: 'flex',
+    gap: '8px',
+    marginBottom: '18px',
+    flexWrap: 'wrap', // allow wrapping on very small screens
   },
   planCard: {
-    flex: 1, padding: '16px 10px',
+    flex: '1 1 140px', // allow cards to shrink and wrap
+    padding: '16px 8px',
     background: 'rgba(255,255,255,0.025)',
     border: '1px solid rgba(255,255,255,0.07)',
     borderRadius: '14px', cursor: 'pointer',

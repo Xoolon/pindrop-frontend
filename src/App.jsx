@@ -10,7 +10,7 @@ import { usePremium } from './hooks/usePremium.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-/* ─── Injected global styles ─────────────────────────────────────────── */
+/* ─── Injected global styles (with responsive additions) ─────────────── */
 const GlobalStyles = () => (
   <style>{`
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -71,6 +71,96 @@ const GlobalStyles = () => (
       background: #E60023;
       border-radius: 50%;
     }
+
+    /* ========== RESPONSIVE FIXES ========== */
+    @media (max-width: 600px) {
+      /* Header */
+      .app-header {
+        height: 56px !important;
+      }
+      .app-header .logo-text {
+        font-size: 18px !important;
+      }
+      .app-header nav {
+        gap: 12px !important;
+      }
+      .app-header nav a,
+      .app-header nav button {
+        font-size: 12px !important;
+        padding: 5px 10px !important;
+      }
+
+      /* Hero input card */
+      .hero-input-card {
+        padding: 12px !important;
+      }
+      .hero-input-card .input-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+      }
+      .hero-input-card .input-row button {
+        width: 100% !important;
+        margin-top: 8px !important;
+      }
+      .hero-input-card .action-buttons {
+        flex-direction: column !important;
+      }
+      .hero-input-card .action-buttons button {
+        width: 100% !important;
+      }
+
+      /* Features grid */
+      .features-grid {
+        gap: 8px !important;
+        margin-bottom: 32px !important;
+      }
+      .features-grid > div {
+        padding: 16px !important;
+      }
+
+      /* How it works */
+      .how-steps {
+        flex-direction: column !important;
+        align-items: center !important;
+      }
+      .how-step {
+        max-width: 100% !important;
+        margin-bottom: 24px !important;
+      }
+      .how-step-arrow {
+        display: none !important;
+      }
+
+      /* Premium badge */
+      .premium-badge button,
+      .premium-badge div[role="button"] {
+        padding: 4px 8px !important;
+        font-size: 11px !important;
+      }
+      .premium-badge .nudge-text {
+        max-width: 100px !important;
+      }
+
+      /* Footer */
+      .app-footer {
+        padding-top: 24px !important;
+        padding-bottom: 32px !important;
+      }
+      .app-footer .footer-links {
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+      }
+    }
+
+    /* Extra small screens (under 400px) */
+    @media (max-width: 400px) {
+      .hero-input-card .input-row input {
+        font-size: 14px !important;
+      }
+      .features-grid {
+        grid-template-columns: 1fr !important;
+      }
+    }
   `}</style>
 );
 
@@ -93,7 +183,7 @@ function Features() {
   ];
 
   return (
-    <div style={{
+    <div className="features-grid" style={{
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
       gap: '12px',
@@ -133,14 +223,14 @@ function HowItWorks() {
       <h2 style={{ fontSize: 'clamp(22px, 4vw, 32px)', fontWeight: 800, color: '#ededf0', fontFamily: 'Syne, sans-serif', textAlign: 'center', marginBottom: '44px' }}>
         Three steps to any Pinterest video
       </h2>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '0', flexWrap: 'wrap' }}>
+      <div className="how-steps" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '0', flexWrap: 'wrap' }}>
         {steps.map((s, i) => (
-          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', maxWidth: '260px', padding: '0 24px', flex: '1 1 200px', position: 'relative' }}>
+          <div key={i} className="how-step" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', maxWidth: '260px', padding: '0 24px', flex: '1 1 200px', position: 'relative' }}>
             <div style={{ fontSize: '44px', fontWeight: 800, fontFamily: 'Syne, sans-serif', color: 'rgba(230,0,35,0.12)', marginBottom: '14px', lineHeight: 1 }}>{s.n}</div>
             <h3 style={{ fontSize: '16px', fontWeight: 700, fontFamily: 'Syne, sans-serif', color: '#ededf0', marginBottom: '10px' }}>{s.title}</h3>
             <p style={{ fontSize: '13px', color: '#5a5a6a', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.65 }}>{s.desc}</p>
             {i < steps.length - 1 && (
-              <div style={{ position: 'absolute', right: '-8px', top: '16px', fontSize: '18px', color: 'rgba(230,0,35,0.25)' }}>→</div>
+              <div className="how-step-arrow" style={{ position: 'absolute', right: '-8px', top: '16px', fontSize: '18px', color: 'rgba(230,0,35,0.25)' }}>→</div>
             )}
           </div>
         ))}
@@ -271,13 +361,13 @@ export default function App() {
       <div style={{ position: 'fixed', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px)', backgroundSize: '64px 64px', pointerEvents: 'none', zIndex: 0, maskImage: 'radial-gradient(ellipse at 50% 0%, black 0%, transparent 65%)' }} />
 
       {/* Header */}
-      <header style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(13,13,16,0.88)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <header className="app-header" style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(13,13,16,0.88)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #E60023, #ad081b)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 4px 16px rgba(230,0,35,0.35)', animation: 'pulseGlow 3s ease infinite' }}>
               <PinIcon size={18} />
             </div>
-            <span style={{ fontSize: '21px', fontWeight: 800, fontFamily: 'Syne, sans-serif', color: '#ededf0', letterSpacing: '-0.02em' }}>
+            <span className="logo-text" style={{ fontSize: '21px', fontWeight: 800, fontFamily: 'Syne, sans-serif', color: '#ededf0', letterSpacing: '-0.02em' }}>
               Pin<span style={{ color: '#E60023' }}>Drop</span>
             </span>
           </div>
@@ -322,8 +412,8 @@ export default function App() {
               </p>
 
               {/* Input card */}
-              <div style={{ background: '#121215', border: `1px solid ${inputBorderColor}`, borderRadius: '20px', padding: '18px', marginBottom: '20px', boxShadow: isFocused ? '0 0 0 4px rgba(230,0,35,0.07), 0 20px 60px rgba(0,0,0,0.4)' : '0 20px 60px rgba(0,0,0,0.35)', transition: 'border-color 0.25s, box-shadow 0.25s', animation: 'fadeUp 0.6s ease 0.2s both' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#0a0a0e', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '4px 4px 4px 16px', marginBottom: '14px' }}>
+              <div className="hero-input-card" style={{ background: '#121215', border: `1px solid ${inputBorderColor}`, borderRadius: '20px', padding: '18px', marginBottom: '20px', boxShadow: isFocused ? '0 0 0 4px rgba(230,0,35,0.07), 0 20px 60px rgba(0,0,0,0.4)' : '0 20px 60px rgba(0,0,0,0.35)', transition: 'border-color 0.25s, box-shadow 0.25s', animation: 'fadeUp 0.6s ease 0.2s both' }}>
+                <div className="input-row" style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#0a0a0e', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '4px 4px 4px 16px', marginBottom: '14px' }}>
                   <div style={{ color: '#E60023', opacity: 0.6, display: 'flex', flexShrink: 0 }}><PinIcon size={18} /></div>
                   <input
                     ref={inputRef}
@@ -343,7 +433,7 @@ export default function App() {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <div className="action-buttons" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                   <button
                     onClick={handlePaste}
                     style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: '#888897', fontSize: '13px', fontWeight: 500, fontFamily: 'DM Sans, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
@@ -422,7 +512,7 @@ export default function App() {
         </div>
 
         {/* Footer */}
-        <footer style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '36px', paddingBottom: '48px', marginTop: '40px' }}>
+        <footer className="app-footer" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '36px', paddingBottom: '48px', marginTop: '40px' }}>
           <div className="container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', textAlign: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2a2a35' }}>
               <PinIcon size={16} />
@@ -432,7 +522,7 @@ export default function App() {
               Not affiliated with Pinterest, Inc. All trademarks belong to their respective owners.<br />
               Please respect copyright and only download content you have rights to.
             </p>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div className="footer-links" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
               {['FAQ', 'Privacy', 'Terms'].map((link, i) => (
                 <React.Fragment key={link}>
                   {i > 0 && <span style={{ color: '#222228' }}>·</span>}

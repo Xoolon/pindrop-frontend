@@ -26,7 +26,7 @@ export function PremiumBadge({ isPremium, onClick }) {
 
   if (isPremium) {
     return (
-      <div style={s.active} title="PinDrop Premium — Active">
+      <div className="premium-badge" style={s.active} title="PinDrop Premium — Active">
         <span style={s.crown}>♛</span>
         <span style={s.activeLabel}>Premium</span>
         <span style={s.activeDot} />
@@ -35,15 +35,17 @@ export function PremiumBadge({ isPremium, onClick }) {
   }
 
   return (
-    <button
-      onClick={onClick}
-      style={{ ...s.upgradeBtn, transform: pulse ? 'scale(1.05)' : 'scale(1)' }}
-      title="Upgrade to Premium"
-    >
-      <span style={s.crown}>♛</span>
-      <span style={s.nudge}>{NUDGES[nudgeIdx]}</span>
-      <span style={s.arrow}>→</span>
-    </button>
+    <div className="premium-badge">
+      <button
+        onClick={onClick}
+        style={{ ...s.upgradeBtn, transform: pulse ? 'scale(1.05)' : 'scale(1)' }}
+        title="Upgrade to Premium"
+      >
+        <span style={s.crown}>♛</span>
+        <span className="nudge-text" style={s.nudge}>{NUDGES[nudgeIdx]}</span>
+        <span style={s.arrow}>→</span>
+      </button>
+    </div>
   );
 }
 
