@@ -20,10 +20,20 @@ const GlobalStyles = () => (
       color: #e8e8f0;
       font-family: 'DM Sans', system-ui, sans-serif;
       -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      width: 100%;
     }
     @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400&display=swap');
 
-    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+    .container {
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    @media (min-width: 640px) {
+      .container { padding: 0 24px; }
+    }
 
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes fadeUp {
@@ -58,7 +68,6 @@ const GlobalStyles = () => (
     a:hover { color: #E60023 !important; }
     button:hover { filter: brightness(1.1); }
 
-    /* Range input styling */
     input[type=range] {
       appearance: none;
       background: rgba(255,255,255,0.15);
@@ -72,98 +81,77 @@ const GlobalStyles = () => (
       border-radius: 50%;
     }
 
-    /* ========== RESPONSIVE FIXES ========== */
-    @media (max-width: 600px) {
-      /* Header */
-      .app-header {
-        height: 56px !important;
-      }
-      .app-header .logo-text {
-        font-size: 18px !important;
-      }
-      .app-header nav {
-        gap: 12px !important;
+    /* ----- RESPONSIVE DESIGN ----- */
+
+    /* Small phones (up to 480px) */
+    @media (max-width: 480px) {
+      .container { padding: 0 16px; }
+      .app-header { height: 56px; }
+      .app-header .logo-text { font-size: 18px; }
+      .app-header nav { gap: 8px; }
+      .app-header nav a,
+      .app-header nav button { font-size: 12px; padding: 5px 8px; }
+      .hero-input-card { padding: 12px; }
+      .hero-input-card .input-row { flex-direction: column; align-items: stretch; }
+      .hero-input-card .input-row button { width: 100%; margin-top: 8px; }
+      .hero-input-card .action-buttons { flex-direction: column; }
+      .hero-input-card .action-buttons button { width: 100%; }
+      .features-grid { grid-template-columns: 1fr !important; gap: 8px; }
+      .how-steps { flex-direction: column; align-items: center; }
+      .how-step { max-width: 100%; margin-bottom: 24px; }
+      .how-step-arrow { display: none; }
+      .footer-links { flex-wrap: wrap; justify-content: center; gap: 12px; }
+      .footer-links span { display: none; } /* hide the dots */
+    }
+
+    /* Phones (481px – 600px) */
+    @media (min-width: 481px) and (max-width: 600px) {
+      .container { padding: 0 20px; }
+      .app-header { height: 60px; }
+      .app-header .logo-text { font-size: 19px; }
+      .app-header nav { gap: 12px; }
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    /* Tablets (601px – 900px) */
+    @media (min-width: 601px) and (max-width: 900px) {
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+      .how-step { max-width: 220px; }
+    }
+
+    /* Ensure the MediaCard never overflows */
+    .media-card-root {
+      max-width: 540px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    /* Improve touch targets on mobile */
+    @media (max-width: 768px) {
+      button, a, input, [role="button"] {
+        touch-action: manipulation;
       }
       .app-header nav a,
       .app-header nav button {
-        font-size: 12px !important;
-        padding: 5px 10px !important;
-      }
-
-      /* Hero input card */
-      .hero-input-card {
-        padding: 12px !important;
-      }
-      .hero-input-card .input-row {
-        flex-direction: column !important;
-        align-items: stretch !important;
-      }
-      .hero-input-card .input-row button {
-        width: 100% !important;
-        margin-top: 8px !important;
-      }
-      .hero-input-card .action-buttons {
-        flex-direction: column !important;
-      }
-      .hero-input-card .action-buttons button {
-        width: 100% !important;
-      }
-
-      /* Features grid */
-      .features-grid {
-        gap: 8px !important;
-        margin-bottom: 32px !important;
-      }
-      .features-grid > div {
-        padding: 16px !important;
-      }
-
-      /* How it works */
-      .how-steps {
-        flex-direction: column !important;
-        align-items: center !important;
-      }
-      .how-step {
-        max-width: 100% !important;
-        margin-bottom: 24px !important;
-      }
-      .how-step-arrow {
-        display: none !important;
-      }
-
-      /* Premium badge */
-      .premium-badge button,
-      .premium-badge div[role="button"] {
-        padding: 4px 8px !important;
-        font-size: 11px !important;
-      }
-      .premium-badge .nudge-text {
-        max-width: 100px !important;
-      }
-
-      /* Footer */
-      .app-footer {
-        padding-top: 24px !important;
-        padding-bottom: 32px !important;
-      }
-      .app-footer .footer-links {
-        flex-wrap: wrap !important;
-        justify-content: center !important;
+        padding: 8px 10px;
       }
     }
 
-    /* Extra small screens (under 400px) */
-    @media (max-width: 400px) {
-      .hero-input-card .input-row input {
-        font-size: 14px !important;
-      }
-      .features-grid {
-        grid-template-columns: 1fr !important;
-      }
+    /* Prevent horizontal scroll */
+    body, #root {
+      overflow-x: hidden;
+      width: 100%;
+      position: relative;
+    }
+
+    /* Make sure the main container doesn't force a fixed width */
+    #root {
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
     }
   `}</style>
 );
-
 /* ─── Icon ────────────────────────────────────────────────────────────── */
 function PinIcon({ size = 22 }) {
   return (
