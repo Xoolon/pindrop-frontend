@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+# Block backend API routes from indexing
+Disallow: /api/
+
+# Block any internal dev/admin paths
+Disallow: /_/
+Disallow: /admin/
+
+# Crawl delay for considerate bots
+Crawl-delay: 10
+
+# Sitemap
+Sitemap: https://pindr.site/sitemap.xml

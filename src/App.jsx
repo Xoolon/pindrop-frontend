@@ -1,97 +1,147 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import AdOverlay from './components/AdOverlay.jsx';
 import AdBanner from './components/AdBanner.jsx';
-import MediaCard from './components/MediaCard.jsx';
+import { MediaCard } from './components/MediaCard.jsx';
+import { DownloadHistory } from './components/DownloadHistory.jsx';
 import FAQSection from './components/FAQSection.jsx';
+import { PremiumModal } from './components/PremiumModal.jsx';
 import { useAdManager } from './hooks/useAdManager.js';
+import { usePremium } from './hooks/usePremium.js';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-function PinIcon() {
+/* ─── Injected global styles ─────────────────────────────────────────── */
+const GlobalStyles = () => (
+  <style>{`
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: #0d0d10;
+      color: #e8e8f0;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400&display=swap');
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(230,0,35,0.2); }
+      50%       { box-shadow: 0 0 36px rgba(230,0,35,0.45); }
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #ff3355 0%, #E60023 40%, #ff6b35 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 3s linear infinite;
+    }
+
+    input::placeholder { color: #44444f; }
+    input:focus { outline: none; }
+
+    a:hover { color: #E60023 !important; }
+    button:hover { filter: brightness(1.1); }
+
+    /* Range input styling */
+    input[type=range] {
+      appearance: none;
+      background: rgba(255,255,255,0.15);
+      border-radius: 4px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      background: #E60023;
+      border-radius: 50%;
+    }
+  `}</style>
+);
+
+/* ─── Icon ────────────────────────────────────────────────────────────── */
+function PinIcon({ size = 22 }) {
   return (
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor">
       <path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/>
     </svg>
   );
 }
 
+/* ─── Features ───────────────────────────────────────────────────────── */
 function Features() {
   const features = [
-    { icon: '⚡', label: 'Lightning Fast', desc: 'Async streaming for instant downloads' },
+    { icon: '⚡', label: 'Lightning Fast', desc: 'Async streaming for instant results' },
     { icon: '◆', label: 'Original Quality', desc: 'No compression, no watermarks ever' },
-    { icon: '▶', label: 'Video + GIF + Image', desc: 'All Pinterest media types supported' },
-    { icon: '⊞', label: 'No Registration', desc: 'Just paste, click, download' },
+    { icon: '▶', label: 'Preview First', desc: 'Watch before you download' },
+    { icon: '⊞', label: 'No Sign-up', desc: 'Just paste, preview, download' },
   ];
 
   return (
-    <div style={featureStyles.grid}>
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
+      gap: '12px',
+      marginBottom: '52px',
+    }}>
       {features.map((f, i) => (
         <div key={i} style={{
-          ...featureStyles.card,
-          animation: `fadeUp 0.5s ease ${0.1 + i * 0.08}s both`,
+          padding: '22px 20px',
+          background: 'rgba(255,255,255,0.025)',
+          border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '7px',
+          animation: `fadeUp 0.5s ease ${0.1 + i * 0.07}s both`,
+          transition: 'border-color 0.2s',
         }}>
-          <span style={featureStyles.icon}>{f.icon}</span>
-          <strong style={featureStyles.label}>{f.label}</strong>
-          <span style={featureStyles.desc}>{f.desc}</span>
+          <span style={{ fontSize: '20px', marginBottom: '2px' }}>{f.icon}</span>
+          <strong style={{ fontSize: '14px', fontWeight: 700, fontFamily: 'Syne, sans-serif', color: '#ededf0' }}>{f.label}</strong>
+          <span style={{ fontSize: '12px', color: '#5a5a6a', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5 }}>{f.desc}</span>
         </div>
       ))}
     </div>
   );
 }
 
-const featureStyles = {
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '12px',
-    marginBottom: '48px',
-  },
-  card: {
-    padding: '20px',
-    background: 'rgba(255,255,255,0.02)',
-    border: '1px solid rgba(255,255,255,0.06)',
-    borderRadius: '14px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-    transition: 'border-color 0.2s ease, background 0.2s ease',
-  },
-  icon: { fontSize: '22px', marginBottom: '4px' },
-  label: {
-    fontSize: '14px',
-    fontWeight: 700,
-    fontFamily: 'Syne, sans-serif',
-    color: '#f0eff2',
-    letterSpacing: '0.01em',
-  },
-  desc: {
-    fontSize: '12px',
-    color: '#666675',
-    fontFamily: 'DM Sans, sans-serif',
-    lineHeight: 1.4,
-  },
-};
-
+/* ─── How It Works ────────────────────────────────────────────────────── */
 function HowItWorks() {
   const steps = [
-    { n: '01', title: 'Copy Pin URL', desc: 'Open any Pinterest pin, copy the link from your browser or app' },
-    { n: '02', title: 'Paste & Analyze', desc: 'Paste the URL into PinDrop and hit Analyze' },
-    { n: '03', title: 'Download', desc: 'Click Download — your media saves in original quality instantly' },
+    { n: '01', title: 'Copy Pin URL', desc: 'Copy any Pinterest video pin link from your browser or the app.' },
+    { n: '02', title: 'Paste & Preview', desc: 'Paste the URL, hit Analyze, then watch the video right in your browser.' },
+    { n: '03', title: 'Download Free', desc: 'Click Download — your MP4 saves instantly, no watermark.' },
   ];
-
   return (
-    <section style={howStyles.section}>
-      <div style={howStyles.eyebrow}>How It Works</div>
-      <h2 style={howStyles.title}>Three steps to any Pinterest media</h2>
-      <div style={howStyles.steps}>
+    <section id="how" style={{ padding: '60px 0', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: '60px' }}>
+      <div style={{ fontSize: '11px', fontFamily: 'Syne, sans-serif', fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#E60023', marginBottom: '12px', textAlign: 'center' }}>How It Works</div>
+      <h2 style={{ fontSize: 'clamp(22px, 4vw, 32px)', fontWeight: 800, color: '#ededf0', fontFamily: 'Syne, sans-serif', textAlign: 'center', marginBottom: '44px' }}>
+        Three steps to any Pinterest video
+      </h2>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: '0', flexWrap: 'wrap' }}>
         {steps.map((s, i) => (
-          <div key={i} style={howStyles.step}>
-            <div style={howStyles.num}>{s.n}</div>
-            <div>
-              <h3 style={howStyles.stepTitle}>{s.title}</h3>
-              <p style={howStyles.stepDesc}>{s.desc}</p>
-            </div>
-            {i < steps.length - 1 && <div style={howStyles.arrow}>→</div>}
+          <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', maxWidth: '260px', padding: '0 24px', flex: '1 1 200px', position: 'relative' }}>
+            <div style={{ fontSize: '44px', fontWeight: 800, fontFamily: 'Syne, sans-serif', color: 'rgba(230,0,35,0.12)', marginBottom: '14px', lineHeight: 1 }}>{s.n}</div>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, fontFamily: 'Syne, sans-serif', color: '#ededf0', marginBottom: '10px' }}>{s.title}</h3>
+            <p style={{ fontSize: '13px', color: '#5a5a6a', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.65 }}>{s.desc}</p>
+            {i < steps.length - 1 && (
+              <div style={{ position: 'absolute', right: '-8px', top: '16px', fontSize: '18px', color: 'rgba(230,0,35,0.25)' }}>→</div>
+            )}
           </div>
         ))}
       </div>
@@ -99,89 +149,20 @@ function HowItWorks() {
   );
 }
 
-const howStyles = {
-  section: {
-    padding: '60px 0',
-    borderTop: '1px solid rgba(255,255,255,0.05)',
-    borderBottom: '1px solid rgba(255,255,255,0.05)',
-    marginBottom: '60px',
-  },
-  eyebrow: {
-    fontSize: '11px',
-    fontFamily: 'Syne, sans-serif',
-    fontWeight: 700,
-    letterSpacing: '0.2em',
-    textTransform: 'uppercase',
-    color: '#E60023',
-    marginBottom: '12px',
-    textAlign: 'center',
-  },
-  title: {
-    fontSize: 'clamp(22px, 4vw, 32px)',
-    fontWeight: 800,
-    color: '#f0eff2',
-    fontFamily: 'Syne, sans-serif',
-    textAlign: 'center',
-    marginBottom: '40px',
-  },
-  steps: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    gap: '0',
-    flexWrap: 'wrap',
-    position: 'relative',
-  },
-  step: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    textAlign: 'center',
-    maxWidth: '240px',
-    padding: '0 20px',
-    position: 'relative',
-    flex: '1 1 200px',
-  },
-  num: {
-    fontSize: '40px',
-    fontWeight: 800,
-    fontFamily: 'Syne, sans-serif',
-    color: 'rgba(230,0,35,0.15)',
-    marginBottom: '12px',
-    lineHeight: 1,
-  },
-  stepTitle: {
-    fontSize: '16px',
-    fontWeight: 700,
-    fontFamily: 'Syne, sans-serif',
-    color: '#f0eff2',
-    marginBottom: '8px',
-  },
-  stepDesc: {
-    fontSize: '13px',
-    color: '#666675',
-    fontFamily: 'DM Sans, sans-serif',
-    lineHeight: 1.6,
-  },
-  arrow: {
-    position: 'absolute',
-    right: '-10px',
-    top: '16px',
-    fontSize: '20px',
-    color: 'rgba(230,0,35,0.3)',
-  },
-};
-
+/* ─── Main App ──────────────────────────────────────────────────────── */
 export default function App() {
   const [url, setUrl] = useState('');
   const [status, setStatus] = useState('idle'); // idle | loading | success | error
   const [media, setMedia] = useState(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [toast, setToast] = useState(null);
+  const [isFocused, setIsFocused] = useState(false);
+
   const inputRef = useRef(null);
   const resultRef = useRef(null);
 
   const { adState, gateDownload, skipAd } = useAdManager();
+  const { isPremium, showUpgrade, setShowUpgrade } = usePremium();
 
   const showToast = useCallback((msg, type = 'success') => {
     setToast({ msg, type });
@@ -190,16 +171,12 @@ export default function App() {
 
   const handleAnalyze = useCallback(async () => {
     const trimmed = url.trim();
-    if (!trimmed) {
-      inputRef.current?.focus();
-      return;
-    }
+    if (!trimmed) { inputRef.current?.focus(); return; }
     if (!trimmed.includes('pinterest') && !trimmed.includes('pin.it')) {
       setErrorMsg('Please enter a valid Pinterest or pin.it URL');
       setStatus('error');
       return;
     }
-
     setStatus('loading');
     setMedia(null);
     setErrorMsg('');
@@ -210,179 +187,203 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: trimmed }),
       });
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.detail || 'Failed to analyze URL');
-      }
+      let data;
+      try { data = await res.json(); } catch { throw new Error('Server returned an invalid response'); }
+      if (!res.ok) throw new Error(data.detail || `Request failed (${res.status})`);
+      if (data.media.type !== 'video') throw new Error('This pin does not contain a video. Only video pins are supported.');
 
       setMedia(data.media);
       setStatus('success');
-
-      setTimeout(() => {
-        resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
+      showToast('Video found! Preview it below.');
+      setTimeout(() => resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 150);
     } catch (err) {
       setStatus('error');
       setErrorMsg(err.message || 'Something went wrong. Please try again.');
     }
-  }, [url]);
+  }, [url, showToast]);
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') handleAnalyze();
-  };
+  const handleKeyDown = (e) => { if (e.key === 'Enter') handleAnalyze(); };
 
   const handlePaste = async () => {
     try {
       const text = await navigator.clipboard.readText();
       if (text.includes('pinterest') || text.includes('pin.it')) {
         setUrl(text);
+        showToast('URL pasted!');
       }
-    } catch {}
+    } catch {
+      // clipboard not accessible
+    }
   };
 
   const handleDownload = useCallback((mediaType, action) => {
     gateDownload(mediaType, () => {
       action();
-      showToast(`Download started! Enjoy your ${mediaType}.`);
+      showToast('Download started!');
     });
   }, [gateDownload, showToast]);
 
   const handleClear = () => {
-    setUrl('');
-    setMedia(null);
-    setStatus('idle');
-    setErrorMsg('');
+    setUrl(''); setMedia(null); setStatus('idle'); setErrorMsg('');
     inputRef.current?.focus();
   };
 
-  return (
-    <div style={appStyles.root}>
-      {/* Ad Overlay */}
-      <AdOverlay adState={adState} onSkip={skipAd} />
+  const inputBorderColor = isFocused
+    ? 'rgba(230,0,35,0.4)'
+    : status === 'error'
+    ? 'rgba(230,0,35,0.3)'
+    : 'rgba(255,255,255,0.09)';
 
-      {/* Toast notification */}
+  return (
+    <>
+      <GlobalStyles />
+
+      <AdOverlay adState={adState} onSkip={skipAd} />
+      <DownloadHistory onSelect={(item) => setUrl(item.url)} />
+      {showUpgrade && <PremiumModal onClose={() => setShowUpgrade(false)} />}
+
+      {/* Toast */}
       {toast && (
         <div style={{
-          ...appStyles.toast,
-          background: toast.type === 'error' ? '#1a0008' : '#0a1a0a',
-          borderColor: toast.type === 'error' ? 'rgba(230,0,35,0.3)' : 'rgba(34,197,94,0.3)',
-          color: toast.type === 'error' ? '#ff6b8a' : '#4ade80',
-        }} className="animate-fadeUp">
+          position: 'fixed', bottom: '24px', right: '24px',
+          padding: '13px 18px',
+          background: toast.type === 'error' ? '#1a0005' : '#081408',
+          border: `1px solid ${toast.type === 'error' ? 'rgba(230,0,35,0.3)' : 'rgba(34,197,94,0.3)'}`,
+          borderRadius: '12px',
+          color: toast.type === 'error' ? '#ff7090' : '#4ade80',
+          fontSize: '13px',
+          fontFamily: 'DM Sans, sans-serif',
+          fontWeight: 500,
+          zIndex: 9999,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          backdropFilter: 'blur(12px)',
+          animation: 'toastIn 0.25s ease',
+        }}>
           {toast.type === 'error' ? '✕' : '✓'} {toast.msg}
         </div>
       )}
 
-      {/* Background decoration */}
-      <div style={appStyles.bgGlow} />
-      <div style={appStyles.bgGrid} />
+      {/* Background effects */}
+      <div style={{ position: 'fixed', top: '-220px', left: '50%', transform: 'translateX(-50%)', width: '900px', height: '700px', background: 'radial-gradient(ellipse at center, rgba(230,0,35,0.07) 0%, transparent 60%)', pointerEvents: 'none', zIndex: 0 }} />
+      <div style={{ position: 'fixed', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px)', backgroundSize: '64px 64px', pointerEvents: 'none', zIndex: 0, maskImage: 'radial-gradient(ellipse at 50% 0%, black 0%, transparent 65%)' }} />
 
       {/* Header */}
-      <header style={appStyles.header}>
-        <div className="container" style={appStyles.headerInner}>
-          <div style={appStyles.logo}>
-            <div style={appStyles.logoIcon}>
-              <PinIcon />
+      <header style={{ position: 'sticky', top: 0, zIndex: 100, background: 'rgba(13,13,16,0.88)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '64px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, #E60023, #ad081b)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', boxShadow: '0 4px 16px rgba(230,0,35,0.35)', animation: 'pulseGlow 3s ease infinite' }}>
+              <PinIcon size={18} />
             </div>
-            <span style={appStyles.logoText}>Pin<span style={{ color: '#E60023' }}>Drop</span></span>
+            <span style={{ fontSize: '21px', fontWeight: 800, fontFamily: 'Syne, sans-serif', color: '#ededf0', letterSpacing: '-0.02em' }}>
+              Pin<span style={{ color: '#E60023' }}>Drop</span>
+            </span>
           </div>
-          <nav style={appStyles.nav}>
-            <a href="#how" style={appStyles.navLink}>How It Works</a>
-            <a href="#faq" style={appStyles.navLink}>FAQ</a>
+          <nav style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+            <a href="#how" style={{ fontSize: '14px', color: '#5a5a6a', textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s' }}>How It Works</a>
+            <a href="#faq" style={{ fontSize: '14px', color: '#5a5a6a', textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s' }}>FAQ</a>
+            {!isPremium && (
+              <button
+                onClick={() => setShowUpgrade(true)}
+                style={{ background: 'linear-gradient(135deg, #f5c842, #e69a10)', border: 'none', borderRadius: '100px', padding: '7px 14px', color: '#0e0e10', fontSize: '13px', fontWeight: 800, fontFamily: 'Syne, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', boxShadow: '0 4px 14px rgba(245,200,66,0.25)' }}
+              >
+                ⚡ Premium
+              </button>
+            )}
+            {isPremium && (
+              <span style={{ fontSize: '13px', color: '#f5c842', fontWeight: 700, fontFamily: 'Syne, sans-serif' }}>⚡ Premium</span>
+            )}
           </nav>
         </div>
       </header>
 
-      <main>
-        {/* Hero section */}
-        <section style={appStyles.hero}>
+      <main style={{ position: 'relative', zIndex: 1 }}>
+        {/* Hero */}
+        <section style={{ paddingTop: '80px', paddingBottom: '60px' }}>
           <div className="container">
-            <div style={appStyles.heroContent}>
+            <div style={{ maxWidth: '720px', margin: '0 auto', textAlign: 'center' }}>
+
               {/* Eyebrow */}
-              <div style={appStyles.eyebrow} className="animate-fadeUp">
-                <span style={appStyles.eyebrowDot} />
-                Free Pinterest Downloader
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontFamily: 'Syne, sans-serif', fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#E60023', padding: '6px 14px', background: 'rgba(230,0,35,0.07)', border: '1px solid rgba(230,0,35,0.18)', borderRadius: '100px', marginBottom: '28px', animation: 'fadeUp 0.5s ease 0.05s both' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#E60023', display: 'inline-block' }} />
+                Free Pinterest Video Downloader
               </div>
 
-              {/* Title */}
-              <h1 style={appStyles.heroTitle} className="animate-fadeUp">
+              <h1 style={{ fontSize: 'clamp(36px, 7vw, 66px)', fontWeight: 800, fontFamily: 'Syne, sans-serif', color: '#ededf0', lineHeight: 1.08, letterSpacing: '-0.03em', marginBottom: '20px', animation: 'fadeUp 0.55s ease 0.1s both' }}>
                 Save Pinterest<br />
-                <span className="gradient-text">Videos, Images & GIFs</span>
+                <span className="gradient-text">Videos Instantly</span>
               </h1>
 
-              <p style={appStyles.heroSub} className="animate-fadeUp">
-                The fastest way to download any Pinterest media in original quality.
-                <br />No watermarks. No registration. Instant.
+              <p style={{ fontSize: 'clamp(15px, 2vw, 18px)', color: '#888897', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.7, marginBottom: '40px', animation: 'fadeUp 0.55s ease 0.15s both' }}>
+                Preview any Pinterest video before downloading it in full original quality.<br />
+                No watermarks. No registration. Just MP4.
               </p>
 
               {/* Input card */}
-              <div style={appStyles.inputCard} className="animate-fadeUp">
-                <div style={appStyles.inputWrapper}>
-                  <div style={appStyles.inputIcon}>
-                    <PinIcon />
-                  </div>
+              <div style={{ background: '#121215', border: `1px solid ${inputBorderColor}`, borderRadius: '20px', padding: '18px', marginBottom: '20px', boxShadow: isFocused ? '0 0 0 4px rgba(230,0,35,0.07), 0 20px 60px rgba(0,0,0,0.4)' : '0 20px 60px rgba(0,0,0,0.35)', transition: 'border-color 0.25s, box-shadow 0.25s', animation: 'fadeUp 0.6s ease 0.2s both' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#0a0a0e', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '4px 4px 4px 16px', marginBottom: '14px' }}>
+                  <div style={{ color: '#E60023', opacity: 0.6, display: 'flex', flexShrink: 0 }}><PinIcon size={18} /></div>
                   <input
                     ref={inputRef}
                     type="url"
                     value={url}
                     onChange={e => setUrl(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Paste Pinterest or pin.it URL here..."
-                    style={appStyles.input}
-                    aria-label="Pinterest URL input"
+                    onFocus={() => setIsFocused(true)}
+                    onBlur={() => setIsFocused(false)}
+                    placeholder="Paste Pinterest video URL here…"
+                    style={{ flex: 1, background: 'transparent', border: 'none', color: '#ededf0', fontSize: '15px', fontFamily: 'DM Sans, sans-serif', padding: '12px 0' }}
                     spellCheck={false}
                     autoComplete="off"
                   />
                   {url && (
-                    <button onClick={handleClear} style={appStyles.clearBtn} aria-label="Clear">✕</button>
+                    <button onClick={handleClear} style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: '#555560', width: '30px', height: '30px', borderRadius: '7px', cursor: 'pointer', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '4px', flexShrink: 0 }}>✕</button>
                   )}
                 </div>
 
-                <div style={appStyles.inputActions}>
-                  <button onClick={handlePaste} style={appStyles.pasteBtn}>
-                    ⊕ Paste URL
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <button
+                    onClick={handlePaste}
+                    style={{ padding: '12px 16px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px', color: '#888897', fontSize: '13px', fontWeight: 500, fontFamily: 'DM Sans, sans-serif', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
+                  >
+                    ⊕ Paste
                   </button>
                   <button
                     onClick={handleAnalyze}
                     disabled={status === 'loading'}
-                    style={{
-                      ...appStyles.analyzeBtn,
-                      ...(status === 'loading' ? appStyles.analyzeBtnLoading : {}),
-                    }}
+                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px', padding: '13px 24px', background: status === 'loading' ? 'rgba(230,0,35,0.5)' : 'linear-gradient(135deg, #E60023 0%, #b8001c 100%)', border: 'none', borderRadius: '10px', color: '#fff', fontSize: '15px', fontWeight: 700, fontFamily: 'Syne, sans-serif', cursor: status === 'loading' ? 'not-allowed' : 'pointer', boxShadow: status === 'loading' ? 'none' : '0 4px 20px rgba(230,0,35,0.35)', transition: 'all 0.2s' }}
                   >
                     {status === 'loading' ? (
-                      <><span style={appStyles.btnSpinner} /> Analyzing...</>
-                    ) : (
-                      <> Analyze & Download</>
-                    )}
+                      <><span style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' }} /> Analyzing…</>
+                    ) : 'Analyze & Preview'}
                   </button>
                 </div>
 
-                {/* Error message */}
                 {status === 'error' && errorMsg && (
-                  <div style={appStyles.errorMsg} className="animate-fadeIn">
+                  <div style={{ marginTop: '12px', padding: '12px 16px', background: 'rgba(230,0,35,0.05)', border: '1px solid rgba(230,0,35,0.18)', borderRadius: '8px', color: '#ff7090', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'DM Sans, sans-serif' }}>
                     <span>✕</span> {errorMsg}
                   </div>
                 )}
               </div>
 
-              {/* Supported types tags */}
-              <div style={appStyles.supportedTags} className="animate-fadeUp">
-                {['MP4 Video', 'JPG/PNG Image', 'Animated GIF', 'WebP'].map(tag => (
-                  <span key={tag} style={appStyles.tag}>{tag}</span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '8px', animation: 'fadeUp 0.6s ease 0.25s both' }}>
+                {['MP4 Video', 'Original Quality', 'No Watermark', 'Free'].map(tag => (
+                  <span key={tag} style={{ fontSize: '11px', color: '#3a3a4a', padding: '4px 11px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '100px', fontFamily: 'DM Sans, sans-serif' }}>{tag}</span>
                 ))}
               </div>
             </div>
           </div>
         </section>
 
-        {/* Center ad banner */}
+        {/* Top ad banner */}
         <div className="container">
           <AdBanner slot="1111111111" format="horizontal" />
         </div>
 
         {/* Features */}
-        <section style={appStyles.featuresSection}>
+        <section style={{ paddingBottom: '40px' }}>
           <div className="container">
             <Features />
           </div>
@@ -390,412 +391,58 @@ export default function App() {
 
         {/* Result */}
         {status === 'success' && media && (
-          <section ref={resultRef} style={appStyles.resultSection}>
+          <section ref={resultRef} style={{ paddingBottom: '64px' }}>
             <div className="container">
-              <div style={appStyles.resultHeader} className="animate-fadeUp">
-                <div style={appStyles.resultDot} />
-                <span style={appStyles.resultLabel}>Media Found</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 12px #22c55e' }} />
+                <span style={{ fontSize: '12px', fontFamily: 'Syne, sans-serif', fontWeight: 700, color: '#22c55e', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Video Found</span>
               </div>
-              <div style={appStyles.cardGrid}>
+              <div style={{ maxWidth: '540px' }}>
                 <MediaCard media={media} onDownload={handleDownload} />
               </div>
             </div>
           </section>
         )}
 
-        {/* Second ad banner (below result) */}
+        {/* Post-result ad */}
         {status === 'success' && (
-          <div className="container">
+          <div className="container" style={{ marginBottom: '60px' }}>
             <AdBanner slot="2222222222" format="horizontal" />
           </div>
         )}
 
         {/* How it works */}
-        <div className="container" id="how">
+        <div className="container">
           <HowItWorks />
         </div>
 
-        {/* FAQ + Footer */}
-        <FAQSection />
+        {/* FAQ */}
+        <div className="container" id="faq">
+          <FAQSection />
+        </div>
 
         {/* Footer */}
-        <footer style={appStyles.footer}>
-          <div className="container" style={appStyles.footerInner}>
-            <div style={appStyles.footerLogo}>
-              <PinIcon />
-              <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800 }}>PinDrop</span>
+        <footer style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '36px', paddingBottom: '48px', marginTop: '40px' }}>
+          <div className="container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', textAlign: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2a2a35' }}>
+              <PinIcon size={16} />
+              <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '16px' }}>PinDrop</span>
             </div>
-            <p style={appStyles.footerText}>
-              Not affiliated with Pinterest, Inc. All trademarks belong to their respective owners.
+            <p style={{ fontSize: '12px', color: '#2e2e3a', fontFamily: 'DM Sans, sans-serif', maxWidth: '480px', lineHeight: 1.7 }}>
+              Not affiliated with Pinterest, Inc. All trademarks belong to their respective owners.<br />
+              Please respect copyright and only download content you have rights to.
             </p>
-            <div style={appStyles.footerLinks}>
-              <a href="#faq" style={appStyles.footerLink}>FAQ</a>
-              <span style={{ color: '#2a2a30' }}>·</span>
-              <a href="#" style={appStyles.footerLink}>Privacy</a>
-              <span style={{ color: '#2a2a30' }}>·</span>
-              <a href="#" style={appStyles.footerLink}>Terms</a>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              {['FAQ', 'Privacy', 'Terms'].map((link, i) => (
+                <React.Fragment key={link}>
+                  {i > 0 && <span style={{ color: '#222228' }}>·</span>}
+                  <a href="#" style={{ fontSize: '12px', color: '#2e2e3a', fontFamily: 'DM Sans, sans-serif', textDecoration: 'none' }}>{link}</a>
+                </React.Fragment>
+              ))}
             </div>
           </div>
         </footer>
       </main>
-    </div>
+    </>
   );
 }
-
-const appStyles = {
-  root: {
-    minHeight: '100vh',
-    position: 'relative',
-    zIndex: 1,
-  },
-  bgGlow: {
-    position: 'fixed',
-    top: '-200px',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: '800px',
-    height: '600px',
-    background: 'radial-gradient(ellipse at center, rgba(230,0,35,0.08) 0%, transparent 65%)',
-    pointerEvents: 'none',
-    zIndex: 0,
-  },
-  bgGrid: {
-    position: 'fixed',
-    inset: 0,
-    backgroundImage: `
-      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)
-    `,
-    backgroundSize: '60px 60px',
-    pointerEvents: 'none',
-    zIndex: 0,
-    maskImage: 'radial-gradient(ellipse at 50% 0%, black 0%, transparent 70%)',
-  },
-  header: {
-    position: 'sticky',
-    top: 0,
-    zIndex: 100,
-    background: 'rgba(10,10,11,0.85)',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
-    borderBottom: '1px solid rgba(255,255,255,0.06)',
-  },
-  headerInner: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: '64px',
-  },
-  logo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-  },
-  logoIcon: {
-    width: '36px',
-    height: '36px',
-    background: 'linear-gradient(135deg, #E60023, #ad081b)',
-    borderRadius: '10px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#fff',
-    flexShrink: 0,
-    boxShadow: '0 4px 16px rgba(230,0,35,0.4)',
-  },
-  logoText: {
-    fontSize: '22px',
-    fontWeight: 800,
-    fontFamily: 'Syne, sans-serif',
-    color: '#f0eff2',
-    letterSpacing: '-0.02em',
-  },
-  nav: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '24px',
-  },
-  navLink: {
-    fontSize: '14px',
-    color: '#666675',
-    fontFamily: 'DM Sans, sans-serif',
-    transition: 'color 0.2s ease',
-    fontWeight: 500,
-  },
-  hero: {
-    paddingTop: '80px',
-    paddingBottom: '60px',
-    position: 'relative',
-    zIndex: 1,
-  },
-  heroContent: {
-    maxWidth: '720px',
-    margin: '0 auto',
-    textAlign: 'center',
-  },
-  eyebrow: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    fontSize: '12px',
-    fontFamily: 'Syne, sans-serif',
-    fontWeight: 700,
-    letterSpacing: '0.15em',
-    textTransform: 'uppercase',
-    color: '#E60023',
-    padding: '6px 14px',
-    background: 'rgba(230,0,35,0.08)',
-    border: '1px solid rgba(230,0,35,0.2)',
-    borderRadius: '100px',
-    marginBottom: '24px',
-    animation: 'fadeUp 0.4s ease 0.1s both',
-  },
-  eyebrowDot: {
-    width: '6px',
-    height: '6px',
-    borderRadius: '50%',
-    background: '#E60023',
-    animation: 'pulse 2s ease infinite',
-  },
-  heroTitle: {
-    fontSize: 'clamp(36px, 7vw, 68px)',
-    fontWeight: 800,
-    fontFamily: 'Syne, sans-serif',
-    color: '#f0eff2',
-    lineHeight: 1.1,
-    letterSpacing: '-0.03em',
-    marginBottom: '20px',
-    animation: 'fadeUp 0.4s ease 0.15s both',
-  },
-  heroSub: {
-    fontSize: 'clamp(15px, 2vw, 18px)',
-    color: '#a09fad',
-    fontFamily: 'DM Sans, sans-serif',
-    lineHeight: 1.7,
-    marginBottom: '40px',
-    animation: 'fadeUp 0.4s ease 0.2s both',
-  },
-  inputCard: {
-    background: '#111113',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '20px',
-    padding: '20px',
-    marginBottom: '20px',
-    boxShadow: '0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(230,0,35,0.05)',
-    animation: 'fadeUp 0.4s ease 0.25s both',
-  },
-  inputWrapper: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    background: '#0a0a0b',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '12px',
-    padding: '4px 4px 4px 16px',
-    marginBottom: '16px',
-    transition: 'border-color 0.2s ease',
-  },
-  inputIcon: {
-    color: '#E60023',
-    flexShrink: 0,
-    opacity: 0.7,
-    display: 'flex',
-  },
-  input: {
-    flex: 1,
-    background: 'transparent',
-    border: 'none',
-    color: '#f0eff2',
-    fontSize: '15px',
-    fontFamily: 'DM Sans, sans-serif',
-    padding: '12px 0',
-    minWidth: 0,
-  },
-  clearBtn: {
-    background: 'rgba(255,255,255,0.05)',
-    border: 'none',
-    color: '#666675',
-    width: '32px',
-    height: '32px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    transition: 'all 0.2s ease',
-    marginRight: '4px',
-  },
-  inputActions: {
-    display: 'flex',
-    gap: '10px',
-    alignItems: 'center',
-  },
-  pasteBtn: {
-    padding: '12px 18px',
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.08)',
-    borderRadius: '10px',
-    color: '#a09fad',
-    fontSize: '13px',
-    fontWeight: 500,
-    fontFamily: 'DM Sans, sans-serif',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    whiteSpace: 'nowrap',
-    flexShrink: 0,
-  },
-  analyzeBtn: {
-    flex: 1,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '10px',
-    padding: '13px 24px',
-    background: 'linear-gradient(135deg, #E60023 0%, #ad081b 100%)',
-    border: 'none',
-    borderRadius: '10px',
-    color: '#fff',
-    fontSize: '15px',
-    fontWeight: 700,
-    fontFamily: 'Syne, sans-serif',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    boxShadow: '0 4px 20px rgba(230,0,35,0.4)',
-    letterSpacing: '0.01em',
-  },
-  analyzeBtnLoading: {
-    opacity: 0.7,
-    cursor: 'not-allowed',
-    boxShadow: 'none',
-  },
-  btnSpinner: {
-    display: 'inline-block',
-    width: '16px',
-    height: '16px',
-    border: '2px solid rgba(255,255,255,0.3)',
-    borderTopColor: '#fff',
-    borderRadius: '50%',
-    animation: 'spin 0.7s linear infinite',
-  },
-  errorMsg: {
-    marginTop: '12px',
-    padding: '12px 16px',
-    background: 'rgba(230,0,35,0.06)',
-    border: '1px solid rgba(230,0,35,0.2)',
-    borderRadius: '8px',
-    color: '#ff6b8a',
-    fontSize: '13px',
-    fontFamily: 'DM Sans, sans-serif',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  supportedTags: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: '8px',
-    animation: 'fadeUp 0.4s ease 0.3s both',
-  },
-  tag: {
-    fontSize: '12px',
-    color: '#444450',
-    padding: '4px 10px',
-    background: 'rgba(255,255,255,0.02)',
-    border: '1px solid rgba(255,255,255,0.05)',
-    borderRadius: '100px',
-    fontFamily: 'DM Sans, sans-serif',
-    fontWeight: 500,
-  },
-  featuresSection: {
-    paddingBottom: '40px',
-    position: 'relative',
-    zIndex: 1,
-  },
-  resultSection: {
-    paddingBottom: '60px',
-    position: 'relative',
-    zIndex: 1,
-  },
-  resultHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    marginBottom: '20px',
-  },
-  resultDot: {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: '#22c55e',
-    boxShadow: '0 0 12px #22c55e',
-    animation: 'pulse 2s ease infinite',
-  },
-  resultLabel: {
-    fontSize: '13px',
-    fontFamily: 'Syne, sans-serif',
-    fontWeight: 700,
-    color: '#22c55e',
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-  },
-  cardGrid: {
-    maxWidth: '520px',
-  },
-  toast: {
-    position: 'fixed',
-    bottom: '24px',
-    right: '24px',
-    padding: '14px 20px',
-    borderRadius: '12px',
-    border: '1px solid',
-    fontSize: '14px',
-    fontFamily: 'DM Sans, sans-serif',
-    fontWeight: 500,
-    zIndex: 9998,
-    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    backdropFilter: 'blur(12px)',
-  },
-  footer: {
-    borderTop: '1px solid rgba(255,255,255,0.05)',
-    paddingTop: '32px',
-    paddingBottom: '40px',
-  },
-  footerInner: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '16px',
-    textAlign: 'center',
-  },
-  footerLogo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    color: '#2a2a30',
-    fontSize: '16px',
-  },
-  footerText: {
-    fontSize: '12px',
-    color: '#333340',
-    fontFamily: 'DM Sans, sans-serif',
-    maxWidth: '480px',
-    lineHeight: 1.6,
-  },
-  footerLinks: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  footerLink: {
-    fontSize: '12px',
-    color: '#333340',
-    fontFamily: 'DM Sans, sans-serif',
-    transition: 'color 0.2s ease',
-  },
-};

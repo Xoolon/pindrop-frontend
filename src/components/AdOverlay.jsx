@@ -1,130 +1,144 @@
-import React, { useEffect, useState } from 'react';
+// components/AdOverlay.jsx
+// ─────────────────────────────────────────────────────────────────────────────
+// Full-screen ad overlay that appears before a download begins.
+// - Shows a 15s countdown; skip button appears after 5s.
+// - Contains a real AdSense interstitial slot in the modal body.
+// - REPLACE data-ad-slot with your interstitial/overlay ad unit from AdSense.
+// ─────────────────────────────────────────────────────────────────────────────
 
-const CIRCUMFERENCE = 2 * Math.PI * 45; // r=45
+import React, { useEffect, useRef, useState } from 'react';
+
+const PUBLISHER_ID    = 'ca-pub-XXXXXXXXXXXXXXXX'; // ← same as AdBanner
+const OVERLAY_AD_SLOT = '3333333333';              // ← replace: interstitial slot
+
+const CIRCUMFERENCE = 2 * Math.PI * 44;
 
 export default function AdOverlay({ adState, onSkip }) {
   const { visible, countdown, skippable } = adState;
   const [mounted, setMounted] = useState(false);
+  const adPushed = useRef(false);
 
   useEffect(() => {
     if (visible) {
       requestAnimationFrame(() => setMounted(true));
+      // Push AdSense unit once overlay is visible
+      if (!adPushed.current) {
+        adPushed.current = true;
+        setTimeout(() => {
+          try {
+            (window.adsbygoogle = window.adsbygoogle || []).push({});
+          } catch (e) {
+            console.debug('[AdOverlay] AdSense push failed:', e.message);
+          }
+        }, 200);
+      }
     } else {
       setMounted(false);
+      adPushed.current = false; // reset so next overlay gets a fresh push
     }
   }, [visible]);
 
   if (!visible) return null;
 
-  const progress = countdown / 15;
-  const dashOffset = CIRCUMFERENCE * (1 - progress);
-  const elapsed = 15 - countdown;
-  const skipProgress = Math.min(elapsed / 5, 1); // 5 seconds to become skippable
+  const elapsed      = 15 - countdown;
+  const skipProgress = Math.min(elapsed / 5, 1);
+  const dashOffset   = CIRCUMFERENCE * (countdown / 15);
 
   return (
-    <div style={styles.backdrop} className="animate-fadeIn">
-      {/* Scanline effect */}
-      <div style={styles.scanline} />
+    <div style={s.backdrop}>
+      {/* Subtle scanline texture */}
+      <div style={s.scanline} />
 
       <div style={{
-        ...styles.modal,
-        transform: mounted ? 'scale(1) translateY(0)' : 'scale(0.92) translateY(20px)',
-        opacity: mounted ? 1 : 0,
-        transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease',
+        ...s.modal,
+        transform: mounted ? 'scale(1) translateY(0)' : 'scale(0.94) translateY(24px)',
+        opacity:   mounted ? 1 : 0,
+        transition: 'transform 0.38s cubic-bezier(0.34,1.45,0.64,1), opacity 0.28s ease',
       }}>
-        {/* Ad label */}
-        <div style={styles.adLabel}>
-          <span style={styles.adDot} />
-          ADVERTISEMENT
+        {/* Top label bar */}
+        <div style={s.adLabel}>
+          <span style={s.adDot} />
+          <span>Advertisement — Your download starts when the ad ends</span>
         </div>
 
         {/* Ad content area */}
-        <div style={styles.adContent}>
-          {/* AdSense slot */}
-          <div style={styles.adsenseContainer}>
+        <div style={s.adContent}>
+          {/* Real AdSense unit */}
+          <div style={s.adsenseWrap}>
             <ins
               className="adsbygoogle"
               style={{ display: 'block', width: '100%', height: '250px' }}
-              data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-              data-ad-slot="1234567890"
+              data-ad-client={PUBLISHER_ID}
+              data-ad-slot={OVERLAY_AD_SLOT}
               data-ad-format="auto"
               data-full-width-responsive="true"
             />
-            <script dangerouslySetInnerHTML={{ __html: '(adsbygoogle = window.adsbygoogle || []).push({});' }} />
           </div>
 
-          {/* Fallback visual if ad doesn't load */}
-          <div style={styles.adFallback}>
-            <div style={styles.adFallbackInner}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style={{ marginBottom: 12 }}>
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#E60023" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          {/* Fallback — visible when AdSense doesn't load */}
+          <div style={s.fallback}>
+            <div style={s.fallbackIcon}>
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+                  stroke="#E60023" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
-              <p style={{ color: '#f0eff2', fontFamily: 'Syne, sans-serif', fontSize: '18px', fontWeight: 700, marginBottom: 8 }}>
-                Support PinDrop
-              </p>
-              <p style={{ color: '#a09fad', fontSize: '14px', fontFamily: 'DM Sans, sans-serif' }}>
-                Free downloads powered by our sponsors
-              </p>
             </div>
+            <p style={s.fallbackTitle}>Support PinDrop</p>
+            <p style={s.fallbackSub}>
+              Free downloads are powered by ads.<br />
+              Go Premium to remove them forever.
+            </p>
           </div>
         </div>
 
         {/* Bottom controls */}
-        <div style={styles.controls}>
-          <div style={styles.messageArea}>
-            {!skippable ? (
-              <span style={styles.waitMessage}>
-                Your download will begin in <strong style={{ color: '#fff' }}>{countdown}s</strong>
-              </span>
-            ) : (
-              <span style={styles.readyMessage}>
-                ✓ Download ready
-              </span>
-            )}
+        <div style={s.controls}>
+          <div style={s.leftMsg}>
+            {skippable
+              ? <span style={s.readyMsg}>✓ Download ready — skip now</span>
+              : <span style={s.waitMsg}>
+                  Download begins in <strong style={{ color: '#ededf0' }}>{countdown}s</strong>
+                </span>
+            }
           </div>
 
-          {/* Countdown ring + skip button */}
-          <div style={styles.timerArea}>
-            {!skippable ? (
-              <div style={styles.countdownRing}>
-                <svg width="64" height="64" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
-                  {/* Track */}
-                  <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" />
-                  {/* Progress */}
-                  <circle
-                    cx="50" cy="50" r="45"
-                    fill="none"
-                    stroke="#E60023"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    strokeDasharray={CIRCUMFERENCE}
-                    strokeDashoffset={dashOffset}
-                    style={{ transition: 'stroke-dashoffset 1s linear' }}
-                  />
-                </svg>
-                <span style={styles.countdownNum}>{countdown}</span>
-              </div>
-            ) : (
-              <button onClick={onSkip} style={styles.skipBtn}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 18L18 6M18 6H8M18 6v10"/>
-                </svg>
-                Skip Ad
-              </button>
-            )}
-          </div>
+          {/* Timer ring or skip button */}
+          {!skippable ? (
+            <div style={s.ring}>
+              <svg width="60" height="60" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+                <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="6" />
+                <circle
+                  cx="50" cy="50" r="44"
+                  fill="none"
+                  stroke="#E60023"
+                  strokeWidth="6"
+                  strokeLinecap="round"
+                  strokeDasharray={CIRCUMFERENCE}
+                  strokeDashoffset={dashOffset}
+                  style={{ transition: 'stroke-dashoffset 1s linear' }}
+                />
+              </svg>
+              <span style={s.ringNum}>{countdown}</span>
+            </div>
+          ) : (
+            <button onClick={onSkip} style={s.skipBtn}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <polygon points="5,3 19,12 5,21"/>
+                <line x1="19" y1="3" x2="19" y2="21"/>
+              </svg>
+              Skip Ad
+            </button>
+          )}
         </div>
 
-        {/* Skip progress bar (shows during pre-skip window) */}
+        {/* Skip progress bar (counts up during first 5s) */}
         {!skippable && elapsed > 0 && (
-          <div style={styles.skipProgressContainer}>
-            <div style={styles.skipProgressLabel}>Skip available in {Math.ceil(5 - elapsed)}s</div>
-            <div style={styles.skipProgressTrack}>
-              <div style={{
-                ...styles.skipProgressFill,
-                width: `${skipProgress * 100}%`,
-                transition: 'width 1s linear',
-              }} />
+          <div style={s.skipBar}>
+            <div style={s.skipBarLabel}>
+              Skip available in {Math.max(0, Math.ceil(5 - elapsed))}s
+            </div>
+            <div style={s.skipTrack}>
+              <div style={{ ...s.skipFill, width: `${skipProgress * 100}%`, transition: 'width 1s linear' }} />
             </div>
           </div>
         )}
@@ -133,155 +147,110 @@ export default function AdOverlay({ adState, onSkip }) {
   );
 }
 
-const styles = {
+const s = {
   backdrop: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.88)',
-    backdropFilter: 'blur(12px)',
-    WebkitBackdropFilter: 'blur(12px)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 9999,
-    padding: '20px',
+    position: 'fixed', inset: 0,
+    background: 'rgba(0,0,0,0.9)',
+    backdropFilter: 'blur(14px)',
+    WebkitBackdropFilter: 'blur(14px)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    zIndex: 9999, padding: '20px',
   },
   scanline: {
-    position: 'absolute',
-    inset: 0,
-    background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.012) 2px, rgba(255,255,255,0.012) 4px)',
-    pointerEvents: 'none',
+    position: 'absolute', inset: 0, pointerEvents: 'none',
+    background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.01) 2px, rgba(255,255,255,0.01) 4px)',
   },
   modal: {
-    width: '100%',
-    maxWidth: '640px',
-    background: '#111113',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: '20px',
-    overflow: 'hidden',
-    boxShadow: '0 40px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(230,0,35,0.1)',
-    position: 'relative',
+    width: '100%', maxWidth: '600px',
+    background: '#111115',
+    border: '1px solid rgba(255,255,255,0.09)',
+    borderRadius: '20px', overflow: 'hidden',
+    boxShadow: '0 40px 100px rgba(0,0,0,0.75), 0 0 0 1px rgba(230,0,35,0.08)',
   },
   adLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '12px 20px',
-    background: 'rgba(230,0,35,0.08)',
-    borderBottom: '1px solid rgba(230,0,35,0.15)',
-    fontSize: '11px',
-    fontFamily: 'Syne, sans-serif',
-    fontWeight: 700,
-    letterSpacing: '0.15em',
-    color: '#E60023',
+    display: 'flex', alignItems: 'center', gap: '8px',
+    padding: '11px 20px',
+    background: 'rgba(230,0,35,0.07)',
+    borderBottom: '1px solid rgba(230,0,35,0.12)',
+    fontSize: '10px', fontFamily: 'Syne, sans-serif',
+    fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
+    color: '#c0001d',
   },
   adDot: {
-    width: '6px',
-    height: '6px',
-    borderRadius: '50%',
-    background: '#E60023',
-    boxShadow: '0 0 8px #E60023',
+    width: '6px', height: '6px', borderRadius: '50%',
+    background: '#E60023', boxShadow: '0 0 8px #E60023',
+    flexShrink: 0,
     animation: 'pulse 1.5s ease infinite',
   },
   adContent: {
-    position: 'relative',
-    minHeight: '270px',
-    background: '#0d0d0f',
-    overflow: 'hidden',
+    position: 'relative', minHeight: '280px',
+    background: '#0c0c0f', overflow: 'hidden',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  adsenseContainer: {
-    padding: '12px',
-    position: 'relative',
-    zIndex: 2,
+  adsenseWrap: {
+    width: '100%', padding: '16px', position: 'relative', zIndex: 2,
   },
-  adFallback: {
-    position: 'absolute',
-    inset: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
+  fallback: {
+    position: 'absolute', inset: 0, zIndex: 1,
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center',
+    gap: '10px', padding: '40px', textAlign: 'center',
   },
-  adFallbackInner: {
-    textAlign: 'center',
-    padding: '40px',
+  fallbackIcon: {
+    width: '72px', height: '72px',
+    background: 'rgba(230,0,35,0.07)',
+    borderRadius: '50%',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    marginBottom: '4px',
+  },
+  fallbackTitle: {
+    fontSize: '18px', fontWeight: 800, fontFamily: 'Syne, sans-serif',
+    color: '#ededf0', marginBottom: '4px',
+  },
+  fallbackSub: {
+    fontSize: '13px', color: '#5a5a6a',
+    fontFamily: 'DM Sans, sans-serif', lineHeight: 1.6,
   },
   controls: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '16px 24px',
-    borderTop: '1px solid rgba(255,255,255,0.06)',
-    gap: '16px',
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    padding: '16px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', gap: '16px',
   },
-  messageArea: {
-    flex: 1,
+  leftMsg: { flex: 1 },
+  waitMsg:  { fontSize: '14px', color: '#6a6a7a', fontFamily: 'DM Sans, sans-serif' },
+  readyMsg: { fontSize: '14px', color: '#22c55e', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 },
+  ring: {
+    position: 'relative', width: '60px', height: '60px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  waitMessage: {
-    fontSize: '14px',
-    color: '#a09fad',
-    fontFamily: 'DM Sans, sans-serif',
-  },
-  readyMessage: {
-    fontSize: '14px',
-    color: '#22c55e',
-    fontFamily: 'DM Sans, sans-serif',
-    fontWeight: 500,
-  },
-  timerArea: {
-    display: 'flex',
-    alignItems: 'center',
-  },
-  countdownRing: {
-    position: 'relative',
-    width: '64px',
-    height: '64px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  countdownNum: {
-    position: 'absolute',
-    fontSize: '18px',
-    fontWeight: 700,
-    fontFamily: 'Syne, sans-serif',
-    color: '#f0eff2',
+  ringNum: {
+    position: 'absolute', fontSize: '17px', fontWeight: 700,
+    fontFamily: 'Syne, sans-serif', color: '#ededf0',
   },
   skipBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px 20px',
-    background: 'rgba(230,0,35,0.15)',
-    border: '1px solid rgba(230,0,35,0.4)',
-    borderRadius: '8px',
-    color: '#ff6b8a',
-    fontSize: '13px',
-    fontWeight: 600,
-    fontFamily: 'Syne, sans-serif',
+    display: 'flex', alignItems: 'center', gap: '7px',
+    padding: '10px 18px',
+    background: 'rgba(230,0,35,0.12)',
+    border: '1px solid rgba(230,0,35,0.35)',
+    borderRadius: '9px', color: '#ff6b8a',
+    fontSize: '13px', fontWeight: 700, fontFamily: 'Syne, sans-serif',
     cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    animation: 'fadeUp 0.3s ease forwards',
+    animation: 'fadeUp 0.25s ease forwards',
+    transition: 'background 0.2s, border-color 0.2s',
+    flexShrink: 0,
   },
-  skipProgressContainer: {
-    padding: '0 24px 16px',
-  },
-  skipProgressLabel: {
-    fontSize: '11px',
-    color: '#666675',
-    fontFamily: 'DM Sans, sans-serif',
-    marginBottom: '6px',
+  skipBar: { padding: '0 22px 16px' },
+  skipBarLabel: {
+    fontSize: '10px', color: '#44444f',
+    fontFamily: 'DM Sans, sans-serif', marginBottom: '5px',
     letterSpacing: '0.05em',
   },
-  skipProgressTrack: {
-    height: '2px',
-    background: 'rgba(255,255,255,0.06)',
-    borderRadius: '2px',
-    overflow: 'hidden',
+  skipTrack: {
+    height: '2px', background: 'rgba(255,255,255,0.05)',
+    borderRadius: '2px', overflow: 'hidden',
   },
-  skipProgressFill: {
+  skipFill: {
     height: '100%',
-    background: 'linear-gradient(90deg, #E60023, #ff6b35)',
+    background: 'linear-gradient(90deg, #E60023, #ff6040)',
     borderRadius: '2px',
   },
 };
