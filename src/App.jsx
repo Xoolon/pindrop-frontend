@@ -469,7 +469,7 @@ export default function App() {
 
         {/* Top ad banner */}
         <div className="container">
-          <AdBanner slot="1111111111" format="horizontal" />
+          <AdBanner slot="top" format="responsive" />
         </div>
 
         {/* Features */}
@@ -497,7 +497,7 @@ export default function App() {
         {/* Post-result ad */}
         {status === 'success' && (
           <div className="container" style={{ marginBottom: '60px' }}>
-            <AdBanner slot="2222222222" format="horizontal" />
+            <AdBanner slot="4218418628" format="responsive" />
           </div>
         )}
 

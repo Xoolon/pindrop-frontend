@@ -19,7 +19,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 // ── REPLACE THIS ──────────────────────────────────────────────────────────────
-const PUBLISHER_ID = 'ca-pub-XXXXXXXXXXXXXXXX'; // ← your AdSense publisher ID
+const PUBLISHER_ID = 'pub-9505934511045266'; // ← your AdSense publisher ID
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Map slot IDs passed via props to configured ad units

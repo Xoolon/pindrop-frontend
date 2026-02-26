@@ -27,7 +27,7 @@ export const PLANS = {
     amount: 1 * 100,           // $1.00 in cents
     currency: 'USD',
     interval: 'monthly',
-    paystackPlanCode: 'PLN_xxxxxxxxxxxxxxx', // ← replace with your plan code from dashboard
+    paystackPlanCode: 'PLN_j8rbb1ig732appf', // ← replace with your plan code from dashboard
     description: '$1 / month · Cancel anytime',
   },
   lifetime: {
