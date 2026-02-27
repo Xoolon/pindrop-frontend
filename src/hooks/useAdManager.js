@@ -1,25 +1,25 @@
 // hooks/useAdManager.js
 // ─────────────────────────────────────────────────────────────────────────────
 // Controls when ads are shown before downloads.
-// Premium users bypass ALL ads.
+// Premium users bypass ALL ads immediately.
 //
-// Frequency: show an ad every N downloads per media type.
-// Since PinDrop is video-only, video is the only type that matters now —
-// but we keep image/gif for future flexibility.
+// FIX: The original hook accepted isPremium as a parameter at hook-call time,
+// meaning it captured a stale closure. We now accept isPremium as a ref-based
+// prop so gateDownload always reads the current value without re-creating.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 const AD_FREQUENCY = {
-  video: 2,   // Show ad every 2 video downloads
+  video: 2,   // show ad every 2 video downloads
   image: 3,
   gif:   3,
 };
 
-const AD_DURATION   = 15;  // Total seconds
-const SKIP_AFTER    = 5;   // Seconds before skip button appears
+const AD_DURATION = 15;   // total seconds overlay is shown
+const SKIP_AFTER  = 5;    // seconds before skip button appears
 
-export function useAdManager(isPremium = false) {
+export function useAdManager() {
   const [adState, setAdState] = useState({
     visible:    false,
     countdown:  AD_DURATION,
@@ -27,8 +27,14 @@ export function useAdManager(isPremium = false) {
     onComplete: null,
   });
 
-  const downloadCounts = useRef({ video: 0, image: 0, gif: 0 });
-  const timerRef       = useRef(null);
+  const downloadCounts  = useRef({ video: 0, image: 0, gif: 0 });
+  const timerRef        = useRef(null);
+  const isPremiumRef    = useRef(false);   // updated by setPremium below
+
+  // Allow App to push current premium state into the ref
+  const setPremiumState = useCallback((val) => {
+    isPremiumRef.current = Boolean(val);
+  }, []);
 
   const clearAdTimer = useCallback(() => {
     if (timerRef.current) {
@@ -36,6 +42,9 @@ export function useAdManager(isPremium = false) {
       timerRef.current = null;
     }
   }, []);
+
+  // Clean up timer on unmount
+  useEffect(() => () => clearAdTimer(), [clearAdTimer]);
 
   const showAd = useCallback((onComplete) => {
     setAdState({
@@ -69,6 +78,7 @@ export function useAdManager(isPremium = false) {
     setAdState(prev => {
       if (!prev.skippable) return prev;
       const cb = prev.onComplete;
+      // Fire callback after state update
       setTimeout(() => cb?.(), 0);
       return { visible: false, countdown: AD_DURATION, skippable: false, onComplete: null };
     });
@@ -76,12 +86,12 @@ export function useAdManager(isPremium = false) {
 
   /**
    * gateDownload(mediaType, action)
-   * If premium → run action immediately (no ads ever).
-   * Otherwise  → check if this download should trigger an ad first.
+   * Runs action immediately for premium users.
+   * For free users: shows ad on every Nth download (per AD_FREQUENCY).
    */
   const gateDownload = useCallback((mediaType, action) => {
-    // Premium users: bypass completely
-    if (isPremium) {
+    // Always read from ref so we never use a stale closure value
+    if (isPremiumRef.current) {
       action();
       return;
     }
@@ -98,9 +108,8 @@ export function useAdManager(isPremium = false) {
     } else {
       action();
     }
-  }, [isPremium, showAd]);
+  }, [showAd]);
 
-  // How many total downloads (for UpgradeStrip visibility logic)
   const totalDownloads = Object.values(downloadCounts.current).reduce((a, b) => a + b, 0);
 
   return {
@@ -108,5 +117,6 @@ export function useAdManager(isPremium = false) {
     gateDownload,
     skipAd,
     totalDownloads,
+    setPremiumState,   // call this in App whenever isPremium changes
   };
 }

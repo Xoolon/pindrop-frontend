@@ -1,129 +1,117 @@
 // hooks/usePremium.js
 // ─────────────────────────────────────────────────────────────────────────────
-// Paystack integration for PinDrop Premium
+// Premium management with HMAC-signed tokens verified against the backend.
 //
-// Pricing:
-//   Monthly  → $1/month  (charged in USD via Paystack international)
-//   Lifetime → $29 once  (charged in USD via Paystack international)
-//
-// NOTE: Paystack now supports USD for international payments.
-// Set currency: 'USD' and amount in cents (100 = $1.00).
+// Security model:
+//   1. User pays via Paystack popup
+//   2. Frontend POSTs reference to /api/verify-payment
+//   3. Backend verifies with Paystack, then issues a signed token
+//   4. Token stored in localStorage (tamper-proof: signature uses server secret)
+//   5. On every page load, token is re-verified against /api/verify-token
+//   6. Without TOKEN_SECRET, forging a token is cryptographically infeasible
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
-// ── REPLACE THESE WITH YOUR REAL VALUES ──────────────────────────────────────
-// 1. Get your public key from https://dashboard.paystack.com/#/settings/developer
-// 2. Create a Recurring Plan in Paystack dashboard (for monthly sub):
-//    Dashboard → Products → Plans → Create Plan
-//    Set: Name="PinDrop Monthly", Amount=100 (Kobo = ₦1 OR set USD), interval=monthly
-//    Copy the plan code (PLN_xxxxxxxx) and paste below.
-const PAYSTACK_PUBLIC_KEY = 'pk_live_431776b40501c3df1990a00fa6b85fe032180618'; // ← replace
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+
+// ── Replace with your real Paystack public key ────────────────────────────────
+export const PAYSTACK_PUBLIC_KEY = 'pk_live_431776b40501c3df1990a00fa6b85fe032180618';
 
 export const PLANS = {
   monthly: {
-    id: 'monthly',
-    label: 'Monthly',
-    amount: 1 * 100,           // $1.00 in cents
-    currency: 'USD',
-    interval: 'monthly',
-    paystackPlanCode: 'PLN_j8rbb1ig732appf', // ← replace with your plan code from dashboard
-    description: '$1 / month · Cancel anytime',
+    id:              'monthly',
+    label:           'Monthly',
+    amount:          1 * 100,           // $1.00 in cents
+    currency:        'USD',
+    interval:        'monthly',
+    paystackPlanCode:'PLN_j8rbb1ig732appf', // ← your Paystack plan code
+    description:     '$1 / month · Cancel anytime',
   },
   lifetime: {
-    id: 'lifetime',
-    label: 'Lifetime',
-    amount: 29 * 100,          // $29.00 in cents
-    currency: 'USD',
-    interval: 'once',
-    paystackPlanCode: null,    // one-time charge, no plan code needed
-    description: '$29 once · Forever ad-free',
+    id:              'lifetime',
+    label:           'Lifetime',
+    amount:          29 * 100,          // $29.00 in cents
+    currency:        'USD',
+    interval:        'once',
+    paystackPlanCode: null,
+    description:     '$29 once · Forever ad-free',
   },
 };
 
-// ── Storage helpers ───────────────────────────────────────────────────────────
-const STORAGE_KEY   = 'pindrop_premium';
-const REF_KEY       = 'pindrop_ref';
-const EXPIRY_KEY    = 'pindrop_expiry';
+// ── Storage key for the signed token ─────────────────────────────────────────
+const TOKEN_KEY = 'pindrop_premium_token';
+const META_KEY  = 'pindrop_premium_meta';   // stores plan/email for UI display only
 
-function loadPremium() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    // Check monthly expiry
-    if (data.plan === 'monthly' && data.expiry) {
-      if (Date.now() > data.expiry) {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(EXPIRY_KEY);
-        return null;
-      }
-    }
-    return data;
-  } catch {
-    return null;
-  }
-}
-
-function savePremium(plan, reference, email) {
-  // Monthly expires in 32 days (small grace period), lifetime never expires
-  const expiry = plan === 'monthly'
-    ? Date.now() + 32 * 24 * 60 * 60 * 1000
-    : null;
-  const data = { plan, reference, email, activatedAt: Date.now(), expiry };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  localStorage.setItem(REF_KEY, reference);
-  if (expiry) localStorage.setItem(EXPIRY_KEY, String(expiry));
-  return data;
+// ── Load Paystack inline.js once ──────────────────────────────────────────────
+let _paystackPromise = null;
+function loadPaystack() {
+  if (_paystackPromise) return _paystackPromise;
+  if (window.PaystackPop) { _paystackPromise = Promise.resolve(); return _paystackPromise; }
+  _paystackPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src     = 'https://js.paystack.co/v1/inline.js';
+    s.onload  = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+  return _paystackPromise;
 }
 
 function generateRef() {
   return `pdrop_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-// ── Load Paystack script once ─────────────────────────────────────────────────
-let paystackScriptPromise = null;
-
-function loadPaystackScript() {
-  if (paystackScriptPromise) return paystackScriptPromise;
-  if (window.PaystackPop) {
-    paystackScriptPromise = Promise.resolve();
-    return paystackScriptPromise;
-  }
-  paystackScriptPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    script.src = 'https://js.paystack.co/v1/inline.js';
-    script.onload = resolve;
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-  return paystackScriptPromise;
-}
-
 // ── Hook ──────────────────────────────────────────────────────────────────────
 export function usePremium() {
-  const [premium, setPremium]       = useState(null);
-  const [loading, setLoading]       = useState(false);
-  const [showUpgrade, setShowUpgrade] = useState(false);
-  const [error, setError]           = useState(null);
+  const [isPremium,    setIsPremium]    = useState(false);
+  const [premiumMeta,  setPremiumMeta]  = useState(null);   // { plan, email }
+  const [loading,      setLoading]      = useState(false);
+  const [showUpgrade,  setShowUpgrade]  = useState(false);
+  const [error,        setError]        = useState(null);
+  const verified = useRef(false);
 
-  // Load from localStorage on mount
+  // ── On mount: verify any stored token against the backend ─────────────────
   useEffect(() => {
-    const data = loadPremium();
-    setPremium(data);
+    if (verified.current) return;
+    verified.current = true;
+
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) return;
+
+    // Optimistically set premium from stored meta while we verify
+    const cached = _loadMeta();
+    if (cached) {
+      setIsPremium(true);
+      setPremiumMeta(cached);
+    }
+
+    // Background verify
+    fetch(`${API_BASE}/api/verify-token`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ token }),
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.valid) {
+          setIsPremium(true);
+          setPremiumMeta({ plan: data.plan, email: data.email });
+          _saveMeta({ plan: data.plan, email: data.email });
+        } else {
+          // Token invalid or expired — clear everything
+          _clearAll();
+          setIsPremium(false);
+          setPremiumMeta(null);
+        }
+      })
+      .catch(() => {
+        // Network error: keep optimistic state (offline tolerance)
+        // Token will be re-verified next session
+      });
   }, []);
 
-  const isPremium = Boolean(premium);
-
-  /**
-   * initPayment(planId, email)
-   * Opens the Paystack inline checkout popup.
-   * On success, saves premium status locally and closes the modal.
-   *
-   * ⚠️  IMPORTANT: After go-live you should ALSO verify the payment
-   * server-side using Paystack's /transaction/verify endpoint.
-   * See SETUP_GUIDE.md for details.
-   */
+  // ── Initiate Paystack payment ──────────────────────────────────────────────
   const initPayment = useCallback(async (planId, email) => {
     if (!email?.trim()) return;
     setError(null);
@@ -133,18 +121,18 @@ export function usePremium() {
     const ref  = generateRef();
 
     try {
-      await loadPaystackScript();
+      await loadPaystack();
     } catch {
       setLoading(false);
-      setError('Could not load payment processor. Check your internet connection.');
+      setError('Could not load payment processor. Check your connection.');
       return;
     }
 
     const config = {
       key:      PAYSTACK_PUBLIC_KEY,
       email:    email.trim(),
-      amount:   plan.amount,     // in cents/kobo
-      currency: plan.currency,   // 'USD'
+      amount:   plan.amount,
+      currency: plan.currency,
       ref,
       label:    'PinDrop Premium',
       metadata: {
@@ -153,22 +141,50 @@ export function usePremium() {
           { display_name: 'Product', variable_name: 'product', value: 'PinDrop' },
         ],
       },
-      channels: ['card', 'bank', 'ussd', 'mobile_money'],
-      callback: (response) => {
-        // response.reference is the transaction ref
-        setLoading(false);
-        const data = savePremium(plan.id, response.reference, email.trim());
-        setPremium(data);
-        setShowUpgrade(false);
-        // ⚠️  In production: POST response.reference to your backend to verify
-        // fetch('/api/verify-payment', { method: 'POST', body: JSON.stringify({ ref: response.reference }) })
+      channels: ['card'],
+
+      callback: async (response) => {
+        // Payment popup closed with success — now verify server-side
+        try {
+          const res = await fetch(`${API_BASE}/api/verify-payment`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+              reference: response.reference,
+              email:     email.trim(),
+              plan:      plan.id,
+            }),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok || !data.success) {
+            setLoading(false);
+            setError(data.detail || 'Payment verification failed. Contact support.');
+            return;
+          }
+
+          // Store the signed token — this is the only thing that grants premium
+          localStorage.setItem(TOKEN_KEY, data.token);
+          _saveMeta({ plan: plan.id, email: email.trim() });
+
+          setIsPremium(true);
+          setPremiumMeta({ plan: plan.id, email: email.trim() });
+          setLoading(false);
+          setShowUpgrade(false);
+
+        } catch (err) {
+          setLoading(false);
+          setError('Network error during verification. Please try again.');
+        }
       },
+
       onClose: () => {
         setLoading(false);
       },
     };
 
-    // For monthly subscription: attach the plan code
+    // Monthly: attach Paystack plan code for recurring billing
     if (plan.paystackPlanCode) {
       config.plan = plan.paystackPlanCode;
     }
@@ -176,36 +192,61 @@ export function usePremium() {
     try {
       const handler = window.PaystackPop.setup(config);
       handler.openIframe();
-    } catch (e) {
+    } catch {
       setLoading(false);
       setError('Payment setup failed. Please try again.');
     }
   }, []);
 
-  /**
-   * Restore premium by pasting a valid transaction reference.
-   * Useful if a user clears localStorage and wants to restore access
-   * without paying again.
-   */
-  const restoreByRef = useCallback((ref) => {
-    if (ref && ref.startsWith('pdrop_')) {
-      const data = savePremium('lifetime', ref, 'restored');
-      setPremium(data);
+  // ── Restore via reference (calls backend to re-issue token) ───────────────
+  const restoreByRef = useCallback(async (reference, email) => {
+    if (!reference?.trim() || !email?.trim()) return false;
+    setError(null);
+    setLoading(true);
+
+    // We attempt to verify the reference with Paystack and get a new token
+    // This requires the user to also provide their email (used at payment time)
+    try {
+      const res = await fetch(`${API_BASE}/api/verify-payment`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          reference: reference.trim(),
+          email:     email.trim(),
+          plan:      'lifetime', // restore assumes lifetime; monthly would have renewed
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        setLoading(false);
+        setError(data.detail || 'Could not restore access. Check your reference and email.');
+        return false;
+      }
+
+      localStorage.setItem(TOKEN_KEY, data.token);
+      _saveMeta({ plan: data.plan, email: email.trim() });
+      setIsPremium(true);
+      setPremiumMeta({ plan: data.plan, email: email.trim() });
+      setLoading(false);
       return true;
+
+    } catch {
+      setLoading(false);
+      setError('Network error. Please try again.');
+      return false;
     }
-    return false;
   }, []);
 
   const clearPremium = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(REF_KEY);
-    localStorage.removeItem(EXPIRY_KEY);
-    setPremium(null);
+    _clearAll();
+    setIsPremium(false);
+    setPremiumMeta(null);
   }, []);
 
   return {
     isPremium,
-    premium,
+    premiumMeta,
     loading,
     error,
     showUpgrade,
@@ -215,4 +256,16 @@ export function usePremium() {
     clearPremium,
     plans: PLANS,
   };
+}
+
+// ── Private helpers ───────────────────────────────────────────────────────────
+function _saveMeta(meta) {
+  try { localStorage.setItem(META_KEY, JSON.stringify(meta)); } catch {}
+}
+function _loadMeta() {
+  try { return JSON.parse(localStorage.getItem(META_KEY)); } catch { return null; }
+}
+function _clearAll() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(META_KEY);
 }

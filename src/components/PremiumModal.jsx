@@ -4,18 +4,20 @@ import { usePremium, PLANS } from '../hooks/usePremium.js';
 
 export function PremiumModal({ onClose }) {
   const { initPayment, loading, error, restoreByRef } = usePremium();
-  const [email, setEmail]               = useState('');
-  const [selectedPlan, setSelectedPlan] = useState('lifetime'); // default to best value
-  const [restoreMode, setRestoreMode]   = useState(false);
-  const [restoreRef, setRestoreRef]     = useState('');
+
+  const [email,        setEmail]        = useState('');
+  const [selectedPlan, setSelectedPlan] = useState('lifetime');
+  const [restoreMode,  setRestoreMode]  = useState(false);
+  const [restoreRef,   setRestoreRef]   = useState('');
+  const [restoreEmail, setRestoreEmail] = useState('');
   const [restoreError, setRestoreError] = useState('');
-  const [emailError, setEmailError]     = useState('');
+  const [emailError,   setEmailError]   = useState('');
 
   const handleBackdropClick = (e) => {
     if (e.target === e.currentTarget) onClose();
   };
 
-  const validateEmail = (val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  const validateEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
   const handleUpgrade = () => {
     if (!validateEmail(email)) {
@@ -26,14 +28,18 @@ export function PremiumModal({ onClose }) {
     initPayment(selectedPlan, email.trim());
   };
 
-  const handleRestore = () => {
-    const trimmed = restoreRef.trim();
-    if (!trimmed) { setRestoreError('Please paste your transaction reference.'); return; }
-    const ok = restoreByRef(trimmed);
+  const handleRestore = async () => {
+    const ref   = restoreRef.trim();
+    const email = restoreEmail.trim();
+    if (!ref)   { setRestoreError('Please paste your transaction reference.'); return; }
+    if (!validateEmail(email)) { setRestoreError('Please enter the email used at payment.'); return; }
+    setRestoreError('');
+
+    const ok = await restoreByRef(ref, email);
     if (ok) {
       onClose();
     } else {
-      setRestoreError('Reference not recognised. Check you pasted the correct pdrop_… reference.');
+      setRestoreError('Could not verify. Check your reference and email match the original payment.');
     }
   };
 
@@ -69,9 +75,7 @@ export function PremiumModal({ onClose }) {
                   </strong>
                   <div style={m.planPrice}>
                     <span style={m.planCurrency}>$</span>
-                    <span style={m.planAmount}>
-                      {p.id === 'monthly' ? '1' : '29'}
-                    </span>
+                    <span style={m.planAmount}>{p.id === 'monthly' ? '1' : '29'}</span>
                   </div>
                   <span style={m.planNote}>
                     {p.id === 'monthly' ? 'per month' : 'one-time payment'}
@@ -80,7 +84,7 @@ export function PremiumModal({ onClose }) {
               ))}
             </div>
 
-            {/* What you get */}
+            {/* Perks */}
             <div style={m.perks}>
               {[
                 { icon: '◈', text: 'Zero ads, forever' },
@@ -109,35 +113,45 @@ export function PremiumModal({ onClose }) {
               {emailError && <p style={m.fieldError}>{emailError}</p>}
             </div>
 
-            {/* API/network error */}
             {error && <p style={m.apiError}>{error}</p>}
 
-            {/* Pay button */}
             <button
               onClick={handleUpgrade}
               disabled={loading}
               style={{ ...m.payBtn, opacity: loading ? 0.65 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
             >
               {loading
-                ? <><span style={m.btnSpinner} /> Processing…</>
+                ? <><span style={m.btnSpinner} /> Verifying payment…</>
                 : <>Pay ${plan.id === 'monthly' ? '1/mo' : '29 once'} via Paystack</>
               }
             </button>
 
-            <p style={m.security}>🔒 Secured by Paystack · SSL encrypted</p>
+            <p style={m.security}>🔒 Secured by Paystack · SSL encrypted · Verified server-side</p>
 
-            {/* Restore link */}
             <button onClick={() => setRestoreMode(true)} style={m.restoreLink}>
               Already paid? Restore access →
             </button>
           </>
         ) : (
-          /* Restore mode */
+          /* Restore mode — now requires email too for backend verification */
           <div style={m.restoreWrap}>
+            <h3 style={m.restoreTitle}>Restore Premium Access</h3>
             <p style={m.restoreDesc}>
-              Paste the transaction reference from your Paystack receipt email
-              (starts with <code style={m.code}>pdrop_</code>).
+              Enter your payment email and the transaction reference from your Paystack receipt.
+              We'll verify with Paystack and restore your access securely.
             </p>
+
+            <label style={m.restoreLabel}>Email used at payment</label>
+            <input
+              type="email"
+              placeholder="your@email.com"
+              value={restoreEmail}
+              onChange={e => { setRestoreEmail(e.target.value); setRestoreError(''); }}
+              style={{ ...m.input, marginBottom: '10px' }}
+              autoComplete="email"
+            />
+
+            <label style={m.restoreLabel}>Transaction reference</label>
             <input
               type="text"
               placeholder="pdrop_1234567890_abc123"
@@ -146,8 +160,17 @@ export function PremiumModal({ onClose }) {
               onKeyDown={e => e.key === 'Enter' && handleRestore()}
               style={{ ...m.input, borderColor: restoreError ? 'rgba(230,0,35,0.4)' : 'rgba(255,255,255,0.08)' }}
             />
-            {restoreError && <p style={m.fieldError}>{restoreError}</p>}
-            <button onClick={handleRestore} style={m.payBtn}>Restore Access</button>
+
+            {restoreError && <p style={{ ...m.fieldError, marginBottom: '10px' }}>{restoreError}</p>}
+            {error && <p style={m.apiError}>{error}</p>}
+
+            <button
+              onClick={handleRestore}
+              disabled={loading}
+              style={{ ...m.payBtn, opacity: loading ? 0.65 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
+            >
+              {loading ? <><span style={m.btnSpinner} /> Verifying…</> : 'Restore Access'}
+            </button>
             <button onClick={() => setRestoreMode(false)} style={m.restoreLink}>← Back to upgrade</button>
           </div>
         )}
@@ -159,27 +182,31 @@ export function PremiumModal({ onClose }) {
 const m = {
   overlay: {
     position: 'fixed', inset: 0,
-    background: 'rgba(0,0,0,0.82)',
-    backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+    background: 'rgba(0,0,0,0.85)',
+    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
     zIndex: 10000,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '16px', // reduced from 24px for more space on small screens
+    padding: '16px',
+    overflowY: 'auto',
   },
   modal: {
     background: 'linear-gradient(160deg, #131318, #0f0f14)',
     border: '1px solid rgba(255,255,255,0.09)',
     borderRadius: '24px',
-    padding: '32px 20px 24px', // adjusted padding
+    padding: '32px 20px 24px',
     maxWidth: '420px', width: '100%',
     position: 'relative', textAlign: 'center',
     boxShadow: '0 40px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(245,200,66,0.07)',
+    boxSizing: 'border-box',
+    margin: 'auto',
   },
   close: {
     position: 'absolute', top: '14px', right: '14px',
     background: 'rgba(255,255,255,0.05)', border: 'none',
-    color: '#555560', width: '30px', height: '30px',
-    borderRadius: '8px', cursor: 'pointer', fontSize: '13px',
+    color: '#555560', width: '32px', height: '32px',
+    borderRadius: '8px', cursor: 'pointer', fontSize: '14px',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
   },
   header: { marginBottom: '20px' },
   crownWrap: { marginBottom: '10px' },
@@ -189,24 +216,22 @@ const m = {
     display: 'inline-block',
   },
   title: {
-    fontSize: '24px', fontWeight: 800, fontFamily: 'Syne, sans-serif',
+    fontSize: 'clamp(20px,5vw,24px)', fontWeight: 800, fontFamily: 'Syne, sans-serif',
     color: '#ededf0', marginBottom: '7px',
   },
   sub: { fontSize: '13px', color: '#555560', fontFamily: 'DM Sans, sans-serif' },
   plans: {
-    display: 'flex',
-    gap: '8px',
-    marginBottom: '18px',
-    flexWrap: 'wrap', // allow wrapping on very small screens
+    display: 'flex', gap: '8px', marginBottom: '18px', flexWrap: 'wrap',
   },
   planCard: {
-    flex: '1 1 140px', // allow cards to shrink and wrap
+    flex: '1 1 130px',
     padding: '16px 8px',
     background: 'rgba(255,255,255,0.025)',
     border: '1px solid rgba(255,255,255,0.07)',
     borderRadius: '14px', cursor: 'pointer',
     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
     position: 'relative', transition: 'all 0.2s ease',
+    minWidth: 0,
   },
   planActive: {
     border: '1px solid rgba(245,200,66,0.45)',
@@ -226,12 +251,12 @@ const m = {
   },
   planPrice: { display: 'flex', alignItems: 'baseline', gap: '1px' },
   planCurrency: { fontSize: '14px', fontWeight: 700, color: '#ededf0', fontFamily: 'Syne, sans-serif' },
-  planAmount: { fontSize: '28px', fontWeight: 800, color: '#ededf0', fontFamily: 'Syne, sans-serif', lineHeight: 1 },
+  planAmount: { fontSize: 'clamp(22px,6vw,28px)', fontWeight: 800, color: '#ededf0', fontFamily: 'Syne, sans-serif', lineHeight: 1 },
   planNote: { fontSize: '10px', color: '#444450', fontFamily: 'DM Sans, sans-serif' },
   perks: {
     display: 'flex', flexDirection: 'column', gap: '8px',
     marginBottom: '18px', textAlign: 'left',
-    padding: '14px 14px',
+    padding: '14px',
     background: 'rgba(255,255,255,0.02)',
     border: '1px solid rgba(255,255,255,0.05)',
     borderRadius: '12px',
@@ -243,18 +268,19 @@ const m = {
   input: {
     width: '100%', padding: '12px 14px',
     background: '#0a0a0e',
-    border: '1px solid',
+    border: '1px solid rgba(255,255,255,0.08)',
     borderRadius: '10px',
     color: '#ededf0', fontSize: '14px',
     fontFamily: 'DM Sans, sans-serif',
     outline: 'none', boxSizing: 'border-box',
-    marginBottom: '4px',
+    display: 'block',
   },
-  fieldError: { fontSize: '11px', color: '#ff7090', fontFamily: 'DM Sans, sans-serif', textAlign: 'left' },
+  fieldError: { fontSize: '11px', color: '#ff7090', fontFamily: 'DM Sans, sans-serif', textAlign: 'left', marginTop: '4px' },
   apiError: {
     fontSize: '12px', color: '#ff7090', fontFamily: 'DM Sans, sans-serif',
     background: 'rgba(230,0,35,0.05)', border: '1px solid rgba(230,0,35,0.15)',
     borderRadius: '8px', padding: '9px 12px', marginBottom: '10px',
+    textAlign: 'left',
   },
   payBtn: {
     width: '100%', padding: '14px',
@@ -272,22 +298,28 @@ const m = {
     display: 'inline-block', width: '15px', height: '15px',
     border: '2px solid rgba(0,0,0,0.2)', borderTopColor: '#000',
     borderRadius: '50%', animation: 'spin 0.7s linear infinite',
+    flexShrink: 0,
   },
   security: { fontSize: '11px', color: '#383840', fontFamily: 'DM Sans, sans-serif', marginBottom: '12px' },
   restoreLink: {
     background: 'none', border: 'none', cursor: 'pointer',
     fontSize: '12px', color: '#444450', fontFamily: 'DM Sans, sans-serif',
     textDecoration: 'underline', padding: '4px',
-    transition: 'color 0.2s',
+    transition: 'color 0.2s', display: 'block', margin: '0 auto',
   },
   restoreWrap: { textAlign: 'left' },
+  restoreTitle: {
+    fontSize: '18px', fontWeight: 800, fontFamily: 'Syne, sans-serif',
+    color: '#ededf0', marginBottom: '10px',
+  },
   restoreDesc: {
     fontSize: '13px', color: '#666675', fontFamily: 'DM Sans, sans-serif',
-    lineHeight: 1.65, marginBottom: '14px',
+    lineHeight: 1.65, marginBottom: '16px',
   },
-  code: {
-    fontFamily: 'DM Mono, monospace', fontSize: '12px',
-    background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px',
-    color: '#f5c842',
+  restoreLabel: {
+    display: 'block', fontSize: '11px', fontWeight: 700,
+    fontFamily: 'Syne, sans-serif', color: '#555560',
+    letterSpacing: '0.1em', textTransform: 'uppercase',
+    marginBottom: '6px',
   },
 };

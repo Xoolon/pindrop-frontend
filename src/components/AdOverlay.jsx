@@ -1,27 +1,25 @@
 // components/AdOverlay.jsx
-// ─────────────────────────────────────────────────────────────────────────────
-// Full-screen ad overlay that appears before a download begins.
-// - Shows a 15s countdown; skip button appears after 5s.
-// - Contains a real AdSense interstitial slot in the modal body.
-// - REPLACE data-ad-slot with your interstitial/overlay ad unit from AdSense.
+// Full-screen ad overlay that gates downloads for free users.
+// - 15s countdown; skip button after 5s.
+// - Contains a real AdSense interstitial slot.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useEffect, useRef, useState } from 'react';
 
-const PUBLISHER_ID    = 'ca-pub-XXXXXXXXXXXXXXXX'; // ← same as AdBanner
-const OVERLAY_AD_SLOT = '3333333333';              // ← replace: interstitial slot
+// ── Replace slot ID with your interstitial/overlay unit from AdSense dashboard
+const PUBLISHER_ID    = 'ca-pub-9505934511045266'; // ← your actual publisher ID
+const OVERLAY_AD_SLOT = '3333333333';               // ← replace with real slot
 
 const CIRCUMFERENCE = 2 * Math.PI * 44;
 
 export default function AdOverlay({ adState, onSkip }) {
   const { visible, countdown, skippable } = adState;
-  const [mounted, setMounted] = useState(false);
+  const [mounted,  setMounted]  = useState(false);
   const adPushed = useRef(false);
 
   useEffect(() => {
     if (visible) {
       requestAnimationFrame(() => setMounted(true));
-      // Push AdSense unit once overlay is visible
       if (!adPushed.current) {
         adPushed.current = true;
         setTimeout(() => {
@@ -34,7 +32,7 @@ export default function AdOverlay({ adState, onSkip }) {
       }
     } else {
       setMounted(false);
-      adPushed.current = false; // reset so next overlay gets a fresh push
+      adPushed.current = false;
     }
   }, [visible]);
 
@@ -46,7 +44,6 @@ export default function AdOverlay({ adState, onSkip }) {
 
   return (
     <div style={s.backdrop}>
-      {/* Subtle scanline texture */}
       <div style={s.scanline} />
 
       <div style={{
@@ -63,7 +60,6 @@ export default function AdOverlay({ adState, onSkip }) {
 
         {/* Ad content area */}
         <div style={s.adContent}>
-          {/* Real AdSense unit */}
           <div style={s.adsenseWrap}>
             <ins
               className="adsbygoogle"
@@ -75,7 +71,7 @@ export default function AdOverlay({ adState, onSkip }) {
             />
           </div>
 
-          {/* Fallback — visible when AdSense doesn't load */}
+          {/* Fallback shown when AdSense doesn't fill */}
           <div style={s.fallback}>
             <div style={s.fallbackIcon}>
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
@@ -102,16 +98,11 @@ export default function AdOverlay({ adState, onSkip }) {
             }
           </div>
 
-          {/* Timer ring or skip button */}
           {!skippable ? (
             <div style={s.ring}>
               <svg width="60" height="60" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
                 <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="6" />
-                <circle
-                  cx="50" cy="50" r="44"
-                  fill="none"
-                  stroke="#E60023"
-                  strokeWidth="6"
+                <circle cx="50" cy="50" r="44" fill="none" stroke="#E60023" strokeWidth="6"
                   strokeLinecap="round"
                   strokeDasharray={CIRCUMFERENCE}
                   strokeDashoffset={dashOffset}
@@ -123,15 +114,13 @@ export default function AdOverlay({ adState, onSkip }) {
           ) : (
             <button onClick={onSkip} style={s.skipBtn}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                <polygon points="5,3 19,12 5,21"/>
-                <line x1="19" y1="3" x2="19" y2="21"/>
+                <polygon points="5,3 19,12 5,21"/><line x1="19" y1="3" x2="19" y2="21"/>
               </svg>
               Skip Ad
             </button>
           )}
         </div>
 
-        {/* Skip progress bar (counts up during first 5s) */}
         {!skippable && elapsed > 0 && (
           <div style={s.skipBar}>
             <div style={s.skipBarLabel}>
@@ -151,17 +140,16 @@ const s = {
   backdrop: {
     position: 'fixed', inset: 0,
     background: 'rgba(0,0,0,0.9)',
-    backdropFilter: 'blur(14px)',
-    WebkitBackdropFilter: 'blur(14px)',
+    backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    zIndex: 9999, padding: '20px',
+    zIndex: 9999, padding: '16px',
   },
   scanline: {
     position: 'absolute', inset: 0, pointerEvents: 'none',
     background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.01) 2px, rgba(255,255,255,0.01) 4px)',
   },
   modal: {
-    width: '100%', maxWidth: '600px',
+    width: '100%', maxWidth: '560px',
     background: '#111115',
     border: '1px solid rgba(255,255,255,0.09)',
     borderRadius: '20px', overflow: 'hidden',
@@ -178,12 +166,10 @@ const s = {
   },
   adDot: {
     width: '6px', height: '6px', borderRadius: '50%',
-    background: '#E60023', boxShadow: '0 0 8px #E60023',
-    flexShrink: 0,
-    animation: 'pulse 1.5s ease infinite',
+    background: '#E60023', boxShadow: '0 0 8px #E60023', flexShrink: 0,
   },
   adContent: {
-    position: 'relative', minHeight: '280px',
+    position: 'relative', minHeight: '250px',
     background: '#0c0c0f', overflow: 'hidden',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
@@ -194,63 +180,55 @@ const s = {
     position: 'absolute', inset: 0, zIndex: 1,
     display: 'flex', flexDirection: 'column',
     alignItems: 'center', justifyContent: 'center',
-    gap: '10px', padding: '40px', textAlign: 'center',
+    gap: '10px', padding: '32px', textAlign: 'center',
   },
   fallbackIcon: {
-    width: '72px', height: '72px',
-    background: 'rgba(230,0,35,0.07)',
-    borderRadius: '50%',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    marginBottom: '4px',
+    width: '64px', height: '64px',
+    background: 'rgba(230,0,35,0.07)', borderRadius: '50%',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '4px',
   },
   fallbackTitle: {
     fontSize: '18px', fontWeight: 800, fontFamily: 'Syne, sans-serif',
     color: '#ededf0', marginBottom: '4px',
   },
   fallbackSub: {
-    fontSize: '13px', color: '#5a5a6a',
-    fontFamily: 'DM Sans, sans-serif', lineHeight: 1.6,
+    fontSize: '13px', color: '#5a5a6a', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.6,
   },
   controls: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '16px 22px', borderTop: '1px solid rgba(255,255,255,0.06)', gap: '16px',
+    padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', gap: '12px',
+    flexWrap: 'wrap',
   },
-  leftMsg: { flex: 1 },
-  waitMsg:  { fontSize: '14px', color: '#6a6a7a', fontFamily: 'DM Sans, sans-serif' },
-  readyMsg: { fontSize: '14px', color: '#22c55e', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 },
+  leftMsg: { flex: 1, minWidth: '120px' },
+  waitMsg:  { fontSize: '13px', color: '#6a6a7a', fontFamily: 'DM Sans, sans-serif' },
+  readyMsg: { fontSize: '13px', color: '#22c55e', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 },
   ring: {
-    position: 'relative', width: '60px', height: '60px',
+    position: 'relative', width: '56px', height: '56px',
     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   ringNum: {
-    position: 'absolute', fontSize: '17px', fontWeight: 700,
+    position: 'absolute', fontSize: '16px', fontWeight: 700,
     fontFamily: 'Syne, sans-serif', color: '#ededf0',
   },
   skipBtn: {
     display: 'flex', alignItems: 'center', gap: '7px',
-    padding: '10px 18px',
+    padding: '10px 16px',
     background: 'rgba(230,0,35,0.12)',
     border: '1px solid rgba(230,0,35,0.35)',
     borderRadius: '9px', color: '#ff6b8a',
     fontSize: '13px', fontWeight: 700, fontFamily: 'Syne, sans-serif',
-    cursor: 'pointer',
-    animation: 'fadeUp 0.25s ease forwards',
+    cursor: 'pointer', flexShrink: 0,
     transition: 'background 0.2s, border-color 0.2s',
-    flexShrink: 0,
   },
-  skipBar: { padding: '0 22px 16px' },
+  skipBar: { padding: '0 20px 14px' },
   skipBarLabel: {
     fontSize: '10px', color: '#44444f',
-    fontFamily: 'DM Sans, sans-serif', marginBottom: '5px',
-    letterSpacing: '0.05em',
+    fontFamily: 'DM Sans, sans-serif', marginBottom: '5px', letterSpacing: '0.05em',
   },
   skipTrack: {
-    height: '2px', background: 'rgba(255,255,255,0.05)',
-    borderRadius: '2px', overflow: 'hidden',
+    height: '2px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden',
   },
   skipFill: {
-    height: '100%',
-    background: 'linear-gradient(90deg, #E60023, #ff6040)',
-    borderRadius: '2px',
+    height: '100%', background: 'linear-gradient(90deg, #E60023, #ff6040)', borderRadius: '2px',
   },
 };
