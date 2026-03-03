@@ -1,180 +1,187 @@
 // components/AdOverlay.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Full-screen download gate overlay for pindr.site.
+// Full-screen download gate. Fires on EVERY download (frequency=1).
 //
-// Video ad source:  ExoClick VAST  (zone 5862980 — replace with your real ID)
-//   VAST tag: https://s.magsrv.com/v1/vast.php?idzone=5862980&ex_av=name
+// PRIMARY:   ExoClick VAST  zone 5863172  (pindrinstream)
+//            https://s.magsrv.com/v1/vast.php?idzone=5863172
+// FALLBACK:  ExoClick display banner zone 5862972 if VAST has no fill / errors
 //
-// Playback:         Google IMA SDK (loaded once from CDN)
-// Fallback:         If IMA fails / no fill → PropellerAds native banner + countdown
-//
-// Timing:           15s total, skip button after 5s
-// Frequency:        Controlled by useAdManager (every Nth download)
+// Timing:    10s total · skip at 5s  (matches useAdManager)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-// ── ExoClick VAST tag (replace zone ID with your real video zone) ─────────────
-const VAST_TAG    = 'https://s.magsrv.com/v1/vast.php?idzone=5862980&ex_av=name';
-const IMA_SDK_URL = 'https://imasdk.googleapis.com/js/sdkloader/ima3.js';
+// ── Config ────────────────────────────────────────────────────────────────────
+const VAST_TAG        = 'https://s.magsrv.com/v1/vast.php?idzone=5863172';
+const IMA_SDK_URL     = 'https://imasdk.googleapis.com/js/sdkloader/ima3.js';
 
-// ── PropellerAds fallback banner (shown when VAST has no fill) ───────────────
-// Zone ID from your PropellerAds account for a 300×250 banner
-const PROPELLER_ZONE = '9505934';   // ← replace with your PropellerAds zone ID
+// ExoClick fallback display banner (same provider, no extra script needed)
+const FB_ZONE_ID      = '5862972';
+const FB_ZONE_CLASS   = 'eas6a97888e10';
+const PROVIDER_SCRIPT = 'https://a.magsrv.com/ad-provider.js';
 
-const TOTAL_DURATION = 15;
-const SKIP_AFTER     = 5;
-const CIRCUMFERENCE  = 2 * Math.PI * 44;
+const AD_DURATION   = 10;
+const SKIP_AFTER    = 5;
+const CIRCUMFERENCE = 2 * Math.PI * 44;
 
-// Module-level flag so IMA SDK only loads once
-let imaSdkInjected = false;
-function ensureImaSdk(onReady) {
-  if (window.google?.ima) { onReady(); return; }
-  if (imaSdkInjected) {
-    // Already injecting — poll for readiness
-    const check = setInterval(() => {
-      if (window.google?.ima) { clearInterval(check); onReady(); }
-    }, 100);
+// ── Module-level singletons ───────────────────────────────────────────────────
+let imaSdkLoading   = false;
+let providerLoaded  = false;
+
+function ensureImaSdk(cb) {
+  if (window.google?.ima) { cb(); return; }
+  if (imaSdkLoading) {
+    const poll = setInterval(() => {
+      if (window.google?.ima) { clearInterval(poll); cb(); }
+    }, 80);
     return;
   }
-  imaSdkInjected = true;
+  imaSdkLoading = true;
   const s = document.createElement('script');
-  s.src   = IMA_SDK_URL;
-  s.async = true;
-  s.onload  = onReady;
-  s.onerror = onReady; // call anyway so fallback takes over
+  s.src     = IMA_SDK_URL;
+  s.async   = true;
+  s.onload  = cb;
+  s.onerror = cb;   // trigger fallback path on load failure
   document.head.appendChild(s);
 }
 
+function ensureProviderScript(cb) {
+  if (providerLoaded || document.querySelector(`script[src="${PROVIDER_SCRIPT}"]`)) {
+    providerLoaded = true;
+    // Script may still be loading — give it a moment
+    setTimeout(cb, 300);
+    return;
+  }
+  providerLoaded = true;
+  const s = document.createElement('script');
+  s.src   = PROVIDER_SCRIPT;
+  s.async = true;
+  s.onload  = cb;
+  s.onerror = cb;
+  document.head.appendChild(s);
+}
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function AdOverlay({ adState, onSkip }) {
   const { visible, countdown, skippable } = adState;
 
-  const videoRef       = useRef(null);
-  const adContainerRef = useRef(null);
-  const adsManagerRef  = useRef(null);
-  const propellerRef   = useRef(null);
-  const propInjected   = useRef(false);
-  const imaInitialized = useRef(false);
+  const adContainerRef  = useRef(null);
+  const videoRef        = useRef(null);
+  const fallbackRef     = useRef(null);
+  const adsManagerRef   = useRef(null);
+  const imaInitRef      = useRef(false);
+  const fallbackInjRef  = useRef(false);
 
-  const [mounted,       setMounted]       = useState(false);
-  const [vastLoaded,    setVastLoaded]    = useState(false);   // IMA got a valid ad
-  const [vastFailed,    setVastFailed]    = useState(false);   // IMA errored / no fill
+  const [mounted,    setMounted]    = useState(false);
+  const [vastFailed, setVastFailed] = useState(false);
 
-  // ── Animate in ────────────────────────────────────────────────────────────
+  // Animate in
   useEffect(() => {
     if (visible) requestAnimationFrame(() => setMounted(true));
     else         setMounted(false);
   }, [visible]);
 
-  // ── PropellerAds fallback banner ──────────────────────────────────────────
-  const injectPropellerFallback = useCallback(() => {
+  // ── Fallback: ExoClick display banner ────────────────────────────────────
+  const injectFallback = useCallback(() => {
     setVastFailed(true);
-    if (propInjected.current || !propellerRef.current) return;
-    propInjected.current = true;
+    if (fallbackInjRef.current) return;
+    fallbackInjRef.current = true;
 
-    // PropellerAds banner script
-    const s = document.createElement('script');
-    s.type  = 'text/javascript';
-    s.innerHTML = `
-      (function(d,z,s){
-        s.src='https://'+d+'/400/'+z;
-        try{ (document.body||document.documentElement).appendChild(s); }
-        catch(e){ console.debug('[PropellerAds] fallback inject error:', e); }
-      })('groleegni.net', ${PROPELLER_ZONE}, document.createElement('script'));
-    `;
-    propellerRef.current.appendChild(s);
+    const doInject = () => {
+      if (!fallbackRef.current) return;
+
+      const ins = document.createElement('ins');
+      ins.className         = FB_ZONE_CLASS;
+      ins.setAttribute('data-zoneid', FB_ZONE_ID);
+      ins.style.display     = 'inline-block';
+      ins.style.width       = '300px';
+      ins.style.height      = '250px';
+      fallbackRef.current.appendChild(ins);
+
+      const srv = document.createElement('script');
+      srv.type        = 'application/javascript';
+      srv.textContent = `(AdProvider = window.AdProvider || []).push({"serve": {}});`;
+      fallbackRef.current.appendChild(srv);
+    };
+
+    ensureProviderScript(doInject);
   }, []);
 
-  // ── Initialize IMA VAST when overlay opens ────────────────────────────────
+  // ── IMA VAST ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!visible || imaInitialized.current) return;
+    if (!visible || imaInitRef.current) return;
 
     ensureImaSdk(() => {
-      if (!window.google?.ima) {
-        injectPropellerFallback();
-        return;
-      }
+      if (!window.google?.ima) { injectFallback(); return; }
 
-      // Small tick so DOM refs are guaranteed mounted
       const t = setTimeout(() => {
-        if (!videoRef.current || !adContainerRef.current) {
-          injectPropellerFallback();
-          return;
-        }
+        if (!videoRef.current || !adContainerRef.current) { injectFallback(); return; }
 
         try {
-          imaInitialized.current = true;
+          imaInitRef.current = true;
 
-          const adDisplayContainer = new window.google.ima.AdDisplayContainer(
+          const adc = new window.google.ima.AdDisplayContainer(
             adContainerRef.current,
             videoRef.current
           );
-          adDisplayContainer.initialize();
+          adc.initialize();
 
-          const adsLoader = new window.google.ima.AdsLoader(adDisplayContainer);
+          const loader = new window.google.ima.AdsLoader(adc);
 
-          adsLoader.addEventListener(
+          loader.addEventListener(
             window.google.ima.AdsManagerLoadedEvent.Type.ADS_MANAGER_LOADED,
             (e) => {
               const mgr = e.getAdsManager(videoRef.current);
               adsManagerRef.current = mgr;
 
-              mgr.addEventListener(window.google.ima.AdEvent.Type.STARTED, () => {
-                setVastLoaded(true);
-              });
-              mgr.addEventListener(window.google.ima.AdEvent.Type.AD_ERROR,       injectPropellerFallback);
-              mgr.addEventListener(window.google.ima.AdEvent.Type.COMPLETE,        onSkip);
-              mgr.addEventListener(window.google.ima.AdEvent.Type.ALL_ADS_COMPLETED, onSkip);
-              mgr.addEventListener(window.google.ima.AdEvent.Type.SKIPPED,         onSkip);
+              mgr.addEventListener(window.google.ima.AdEvent.Type.AD_ERROR,          injectFallback);
+              mgr.addEventListener(window.google.ima.AdEvent.Type.COMPLETE,           onSkip);
+              mgr.addEventListener(window.google.ima.AdEvent.Type.ALL_ADS_COMPLETED,  onSkip);
+              mgr.addEventListener(window.google.ima.AdEvent.Type.SKIPPED,            onSkip);
 
               try {
                 mgr.init(560, 315, window.google.ima.ViewMode.NORMAL);
                 mgr.start();
-              } catch {
-                injectPropellerFallback();
-              }
+              } catch { injectFallback(); }
             }
           );
 
-          adsLoader.addEventListener(
+          loader.addEventListener(
             window.google.ima.AdErrorEvent.Type.AD_ERROR,
-            injectPropellerFallback
+            injectFallback
           );
 
           const req = new window.google.ima.AdsRequest();
-          req.adTagUrl            = VAST_TAG;
-          req.linearAdSlotWidth   = 560;
-          req.linearAdSlotHeight  = 315;
-          adsLoader.requestAds(req);
+          req.adTagUrl           = VAST_TAG;
+          req.linearAdSlotWidth  = 560;
+          req.linearAdSlotHeight = 315;
+          loader.requestAds(req);
 
-        } catch {
-          injectPropellerFallback();
-        }
-      }, 150);
+        } catch { injectFallback(); }
+      }, 120);
 
       return () => clearTimeout(t);
     });
-  }, [visible, injectPropellerFallback, onSkip]);
+  }, [visible, injectFallback, onSkip]);
 
-  // ── Cleanup on close ──────────────────────────────────────────────────────
+  // ── Cleanup on close ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!visible) {
       if (adsManagerRef.current) {
         try { adsManagerRef.current.destroy(); } catch {}
         adsManagerRef.current = null;
       }
-      imaInitialized.current = false;
-      propInjected.current   = false;
-      setVastLoaded(false);
+      imaInitRef.current    = false;
+      fallbackInjRef.current = false;
       setVastFailed(false);
     }
   }, [visible]);
 
   if (!visible) return null;
 
-  const elapsed      = TOTAL_DURATION - countdown;
+  const elapsed      = AD_DURATION - countdown;
   const skipProgress = Math.min(elapsed / SKIP_AFTER, 1);
-  const dashOffset   = CIRCUMFERENCE * (countdown / TOTAL_DURATION);
+  const dashOffset   = CIRCUMFERENCE * (countdown / AD_DURATION);
 
   return (
     <div style={s.backdrop}>
@@ -187,35 +194,38 @@ export default function AdOverlay({ adState, onSkip }) {
         transition: 'transform 0.36s cubic-bezier(0.34,1.45,0.64,1), opacity 0.26s ease',
       }}>
 
-        {/* Label bar */}
+        {/* Header */}
         <div style={s.adLabel}>
           <span style={s.adDot} />
           <span>Advertisement — Your download starts when the ad ends</span>
         </div>
 
-        {/* Ad content area */}
+        {/* Ad area */}
         <div style={s.adContent}>
 
-          {/* IMA renders the VAST video into this container */}
-          <div ref={adContainerRef} style={{
-            ...s.imaContainer,
-            display: vastFailed ? 'none' : 'flex',
-          }}>
+          {/* IMA VAST container — hidden (not removed) when fallback shows */}
+          <div
+            ref={adContainerRef}
+            style={{ ...s.imaWrap, display: vastFailed ? 'none' : 'block' }}
+          >
             <video
               ref={videoRef}
-              style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0 }}
+              style={{ position: 'absolute', width: '1px', height: '1px', opacity: 0, pointerEvents: 'none' }}
               playsInline
             />
           </div>
 
-          {/* PropellerAds fallback — shown only when VAST fails */}
+          {/* ExoClick display fallback */}
           {vastFailed && (
-            <div style={s.fallbackWrap}>
-              <div ref={propellerRef} style={s.propellerSlot} />
-              {/* Static fallback if PropellerAds also has no fill */}
-              <div style={s.fallback}>
+            <div style={s.fallbackOuter}>
+              <div
+                ref={fallbackRef}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 2 }}
+              />
+              {/* Static message underneath — visible if ExoClick also has no fill */}
+              <div style={s.fallbackMsg}>
                 <div style={s.fallbackIcon}>
-                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none">
                     <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
                       stroke="#E60023" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
@@ -223,7 +233,7 @@ export default function AdOverlay({ adState, onSkip }) {
                 <p style={s.fallbackTitle}>Support PinDrop</p>
                 <p style={s.fallbackSub}>
                   Free downloads are powered by ads.<br />
-                  Your download will start in {countdown}s.
+                  Download starts in <strong style={{ color: '#ededf0' }}>{countdown}s</strong>
                 </p>
               </div>
             </div>
@@ -243,7 +253,7 @@ export default function AdOverlay({ adState, onSkip }) {
 
           {!skippable ? (
             <div style={s.ring}>
-              <svg width="60" height="60" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+              <svg width="56" height="56" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
                 <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="6" />
                 <circle cx="50" cy="50" r="44" fill="none" stroke="#E60023" strokeWidth="6"
                   strokeLinecap="round"
@@ -264,7 +274,7 @@ export default function AdOverlay({ adState, onSkip }) {
           )}
         </div>
 
-        {/* Skip progress bar */}
+        {/* Skip progress bar — shown during the first 5s */}
         {!skippable && elapsed > 0 && (
           <div style={s.skipBar}>
             <div style={s.skipBarLabel}>
@@ -280,6 +290,7 @@ export default function AdOverlay({ adState, onSkip }) {
   );
 }
 
+// ── Styles ────────────────────────────────────────────────────────────────────
 const s = {
   backdrop: {
     position: 'fixed', inset: 0,
@@ -290,7 +301,7 @@ const s = {
   },
   scanline: {
     position: 'absolute', inset: 0, pointerEvents: 'none',
-    background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.008) 2px, rgba(255,255,255,0.008) 4px)',
+    background: 'repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.008) 2px,rgba(255,255,255,0.008) 4px)',
   },
   modal: {
     width: '100%', maxWidth: '560px',
@@ -301,12 +312,11 @@ const s = {
   },
   adLabel: {
     display: 'flex', alignItems: 'center', gap: '8px',
-    padding: '11px 20px',
+    padding: '10px 18px',
     background: 'rgba(230,0,35,0.07)',
     borderBottom: '1px solid rgba(230,0,35,0.12)',
     fontSize: '10px', fontFamily: 'Syne, sans-serif',
-    fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase',
-    color: '#c0001d',
+    fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: '#c0001d',
   },
   adDot: {
     width: '6px', height: '6px', borderRadius: '50%',
@@ -317,72 +327,54 @@ const s = {
     background: '#0c0c0f', overflow: 'hidden',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  // IMA renders into this — must be position:relative and sized
-  imaContainer: {
+  // IMA VAST container — fills the whole ad area
+  imaWrap: {
     position: 'absolute', inset: 0, zIndex: 2,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  fallbackWrap: {
+  // Fallback layout
+  fallbackOuter: {
     position: 'absolute', inset: 0, zIndex: 2,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center',
   },
-  propellerSlot: {
-    position: 'absolute', inset: 0, zIndex: 3,
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-  },
-  fallback: {
+  fallbackMsg: {
     position: 'absolute', inset: 0, zIndex: 1,
     display: 'flex', flexDirection: 'column',
     alignItems: 'center', justifyContent: 'center',
-    gap: '10px', padding: '32px', textAlign: 'center',
+    gap: '8px', padding: '28px', textAlign: 'center',
   },
   fallbackIcon: {
-    width: '64px', height: '64px',
+    width: '60px', height: '60px',
     background: 'rgba(230,0,35,0.07)', borderRadius: '50%',
     display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '4px',
   },
-  fallbackTitle: {
-    fontSize: '18px', fontWeight: 800, fontFamily: 'Syne, sans-serif',
-    color: '#ededf0', marginBottom: '4px',
-  },
-  fallbackSub: {
-    fontSize: '13px', color: '#5a5a6a', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.6,
-  },
+  fallbackTitle: { fontSize: '17px', fontWeight: 800, fontFamily: 'Syne, sans-serif', color: '#ededf0' },
+  fallbackSub:   { fontSize: '13px', color: '#5a5a6a', fontFamily: 'DM Sans, sans-serif', lineHeight: 1.6 },
   controls: {
     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', gap: '12px',
-    flexWrap: 'wrap',
+    padding: '13px 18px', borderTop: '1px solid rgba(255,255,255,0.06)',
+    gap: '12px', flexWrap: 'wrap',
   },
   leftMsg:  { flex: 1, minWidth: '120px' },
   waitMsg:  { fontSize: '13px', color: '#6a6a7a', fontFamily: 'DM Sans, sans-serif' },
   readyMsg: { fontSize: '13px', color: '#22c55e', fontFamily: 'DM Sans, sans-serif', fontWeight: 500 },
   ring: {
-    position: 'relative', width: '56px', height: '56px',
+    position: 'relative', width: '52px', height: '52px',
     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   ringNum: {
-    position: 'absolute', fontSize: '16px', fontWeight: 700,
+    position: 'absolute', fontSize: '15px', fontWeight: 700,
     fontFamily: 'Syne, sans-serif', color: '#ededf0',
   },
   skipBtn: {
-    display: 'flex', alignItems: 'center', gap: '7px',
-    padding: '10px 16px',
-    background: 'rgba(230,0,35,0.12)',
-    border: '1px solid rgba(230,0,35,0.35)',
+    display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 15px',
+    background: 'rgba(230,0,35,0.12)', border: '1px solid rgba(230,0,35,0.35)',
     borderRadius: '9px', color: '#ff6b8a',
     fontSize: '13px', fontWeight: 700, fontFamily: 'Syne, sans-serif',
-    cursor: 'pointer', flexShrink: 0,
-    transition: 'background 0.2s',
+    cursor: 'pointer', flexShrink: 0, transition: 'background 0.2s',
   },
-  skipBar:      { padding: '0 20px 14px' },
-  skipBarLabel: {
-    fontSize: '10px', color: '#44444f',
-    fontFamily: 'DM Sans, sans-serif', marginBottom: '5px', letterSpacing: '0.05em',
-  },
-  skipTrack: {
-    height: '2px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden',
-  },
-  skipFill: {
-    height: '100%', background: 'linear-gradient(90deg, #E60023, #ff6040)', borderRadius: '2px',
-  },
+  skipBar:      { padding: '0 18px 13px' },
+  skipBarLabel: { fontSize: '10px', color: '#44444f', fontFamily: 'DM Sans, sans-serif', marginBottom: '5px', letterSpacing: '0.05em' },
+  skipTrack:    { height: '2px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' },
+  skipFill:     { height: '100%', background: 'linear-gradient(90deg, #E60023, #ff6040)', borderRadius: '2px' },
 };
