@@ -1,16 +1,23 @@
 // App.jsx — pindr.site
 // ─────────────────────────────────────────────────────────────────────────────
+// ALL ads rendered by ExoClick:
+//   Zone 5862972  → AdBanner   (mobile banner below analyze button)
+//   Zone 5863452  → MediaCard  (300×250 below download button)
+//   Zone 5862978  → AnchorAd   (sticky bottom banner)
+//   Zone 5863172  → AdOverlay  (VAST in-stream video before download)
+//
+// PropellerAds removed entirely.
+// ─────────────────────────────────────────────────────────────────────────────
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import AdOverlay       from './components/AdOverlay.jsx';
-import AdBanner        from './components/AdBanner.jsx';
-import { MediaCard }   from './components/MediaCard.jsx';
-import AnchorAd        from './components/AnchorAd.jsx';
-import { DownloadHistory } from './components/DownloadHistory.jsx';
-import FAQSection      from './components/FAQSection.jsx';
-import { PremiumModal }from './components/PremiumModal.jsx';
-import { useAdManager }from './hooks/useAdManager.js';
-import { usePremium }  from './hooks/usePremium.js';
-import PropellerBanner from './components/PropellerBanner.jsx';   // ← ADD THIS
+import AdOverlay          from './components/AdOverlay.jsx';
+import AdBanner           from './components/AdBanner.jsx';
+import { MediaCard }      from './components/MediaCard.jsx';
+import AnchorAd           from './components/AnchorAd.jsx';
+import { DownloadHistory }from './components/DownloadHistory.jsx';
+import FAQSection         from './components/FAQSection.jsx';
+import { PremiumModal }   from './components/PremiumModal.jsx';
+import { useAdManager }   from './hooks/useAdManager.js';
+import { usePremium }     from './hooks/usePremium.js';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -147,9 +154,9 @@ function Features() {
 /* ─── How It Works ────────────────────────────────────────────────────────── */
 function HowItWorks() {
   const steps = [
-    { n: '01', title: 'Copy Pin URL',      desc: 'Copy any Pinterest video pin link from your browser or the app.' },
-    { n: '02', title: 'Paste & Preview',   desc: 'Paste the URL, hit Analyze, then watch the video right in your browser.' },
-    { n: '03', title: 'Download Free',     desc: 'Click Download — your MP4 saves instantly, no watermark.' },
+    { n: '01', title: 'Copy Pin URL',    desc: 'Copy any Pinterest video pin link from your browser or the app.' },
+    { n: '02', title: 'Paste & Preview', desc: 'Paste the URL, hit Analyze, then watch the video right in your browser.' },
+    { n: '03', title: 'Download Free',   desc: 'Click Download — your MP4 saves instantly, no watermark.' },
   ];
   return (
     <section id="how" style={{ padding: 'clamp(40px,8vw,60px) 0', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)', marginBottom: 'clamp(40px,8vw,60px)' }}>
@@ -246,7 +253,7 @@ export default function App() {
     <>
       <GlobalStyles />
 
-      {/* ── ExoClick VAST video gate overlay ── */}
+      {/* ExoClick VAST video gate overlay — zone 5863172 */}
       <AdOverlay adState={adState} onSkip={skipAd} />
 
       <DownloadHistory onSelect={(item) => setUrl(item.url)} />
@@ -268,7 +275,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Background */}
+      {/* Background effects */}
       <div style={{ position: 'fixed', top: '-220px', left: '50%', transform: 'translateX(-50%)', width: 'min(900px, 100vw)', height: '700px', background: 'radial-gradient(ellipse at center, rgba(230,0,35,0.07) 0%, transparent 60%)', pointerEvents: 'none', zIndex: 0 }} />
       <div style={{ position: 'fixed', inset: 0, backgroundImage: 'linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px)', backgroundSize: '64px 64px', pointerEvents: 'none', zIndex: 0, maskImage: 'radial-gradient(ellipse at 50% 0%, black 0%, transparent 65%)' }} />
 
@@ -284,8 +291,8 @@ export default function App() {
             </span>
           </div>
           <nav className="header-nav" style={{ display: 'flex', alignItems: 'center' }}>
-            <a href="#how"  className="nav-link" style={{ color: '#5a5a6a', textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s', whiteSpace: 'nowrap' }}>How It Works</a>
-            <a href="#faq"  className="nav-link" style={{ color: '#5a5a6a', textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s' }}>FAQ</a>
+            <a href="#how" className="nav-link" style={{ color: '#5a5a6a', textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s', whiteSpace: 'nowrap' }}>How It Works</a>
+            <a href="#faq" className="nav-link" style={{ color: '#5a5a6a', textDecoration: 'none', fontWeight: 500, transition: 'color 0.2s' }}>FAQ</a>
             {!isPremium ? (
               <button onClick={() => setShowUpgrade(true)} style={{ background: 'linear-gradient(135deg, #f5c842, #e69a10)', border: 'none', borderRadius: '100px', padding: '6px 12px', color: '#0e0e10', fontSize: 'clamp(11px,3vw,13px)', fontWeight: 800, fontFamily: 'Syne, sans-serif', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', boxShadow: '0 4px 14px rgba(245,200,66,0.25)', whiteSpace: 'nowrap', flexShrink: 0 }}>
                 ⚡ Premium
@@ -361,7 +368,7 @@ export default function App() {
           </div>
         </section>
 
-        {/* ── ExoClick top banner (hidden for premium) ── */}
+        {/* ExoClick mobile banner — zone 5862972 */}
         {!isPremium && (
           <div className="container">
             <AdBanner isPremium={isPremium} />
@@ -382,10 +389,9 @@ export default function App() {
                 <span style={{ fontSize: '11px', fontFamily: 'Syne, sans-serif', fontWeight: 700, color: '#22c55e', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Video Found</span>
               </div>
               <div className="media-card-root">
-                {/* PropellerAds banner is rendered inside MediaCard */}
+                {/* ExoClick 300×250 banner zone 5863452 rendered inside MediaCard */}
                 <MediaCard media={media} onDownload={handleDownload} isPremium={isPremium} />
               </div>
-               {!isPremium && <PropellerBanner isPremium={isPremium} />}
             </div>
           </section>
         )}
@@ -393,6 +399,7 @@ export default function App() {
         <div className="container"><HowItWorks /></div>
         <div className="container" id="faq"><FAQSection /></div>
 
+        {/* Footer — fixed JSX bug (malformed nested <p> tags) */}
         <footer style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '32px', paddingBottom: '48px', marginTop: '32px' }}>
           <div className="container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', textAlign: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#2a2a35' }}>
@@ -400,8 +407,10 @@ export default function App() {
               <span style={{ fontFamily: 'Syne, sans-serif', fontWeight: 800, fontSize: '15px' }}>PinDrop</span>
             </div>
             <p style={{ fontSize: '12px', color: '#2e2e3a', fontFamily: 'DM Sans, sans-serif', maxWidth: '480px', lineHeight: 1.7 }}>
-              Not affiliated with Pinterest, Inc. All trademarks belong to their respective owners.<br />
-              Please respect copyright and only download content you have rights to.
+              Not affiliated with Pinterest, Inc. All trademarks belong to their respective owners.
+            </p>
+            <p style={{ fontSize: '12px', color: '#2e2e3a', fontFamily: 'DM Sans, sans-serif' }}>
+              © 2025 A Product of Cyntax LLC. Please respect copyright and only download content you have rights to.
             </p>
             <div className="footer-links" style={{ display: 'flex', alignItems: 'center' }}>
               {['FAQ', 'Privacy', 'Terms'].map((link, i) => (
@@ -414,7 +423,7 @@ export default function App() {
           </div>
         </footer>
 
-        {/* ── ExoClick sticky anchor ad (hidden for premium) ── */}
+        {/* ExoClick sticky anchor ad — zone 5862978 */}
         {!isPremium && <AnchorAd />}
 
       </main>

@@ -1,12 +1,11 @@
 // components/MediaCard.jsx
 // ─────────────────────────────────────────────────────────────────────────────
 // Ad placements:
-//   - "Sponsored" card below Download button → ExoClickBanner (ExoClick)
-//   - All other ads (sticky, overlay, top banner) → ExoClick
+//   - "Sponsored" card below Download button → ExoClick zone 5863452 (300×250)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useRef, useCallback } from 'react';
-import ExoClickBanner from './ExoClickBanner.jsx';   // keep this import
+import ExoClickBanner from './ExoClickBanner.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -78,7 +77,7 @@ function VideoPlayer({ videoUrl, thumbnail, title }) {
 
   const formatTime = (s) => {
     if (!s || isNaN(s)) return '0:00';
-    const m = Math.floor(s / 60);
+    const m   = Math.floor(s / 60);
     const sec = Math.floor(s % 60);
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
@@ -262,7 +261,7 @@ export function MediaCard({ media, onDownload, isPremium = false }) {
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         window.URL.revokeObjectURL(blobUrl);
 
-        // History
+        // Save to history
         try {
           const history = JSON.parse(localStorage.getItem('pindrop_history') || '[]');
           history.unshift({ timestamp: Date.now(), title: title || 'Pinterest Video', url, thumbnail });
@@ -293,11 +292,11 @@ export function MediaCard({ media, onDownload, isPremium = false }) {
   };
 
   const sharePlatforms = [
-    { id: 'whatsapp',  label: 'WhatsApp',           Icon: WhatsAppIcon,  bg: 'rgba(37,211,102,0.1)',  border: 'rgba(37,211,102,0.2)'  },
-    { id: 'x',         label: 'X',                  Icon: XIcon,         bg: 'rgba(255,255,255,0.06)',border: 'rgba(255,255,255,0.1)'  },
-    { id: 'telegram',  label: 'Telegram',            Icon: TelegramIcon,  bg: 'rgba(34,158,217,0.1)',  border: 'rgba(34,158,217,0.2)'  },
-    { id: 'facebook',  label: 'Facebook',            Icon: FacebookIcon,  bg: 'rgba(24,119,242,0.1)',  border: 'rgba(24,119,242,0.2)'  },
-    { id: 'instagram', label: copied ? 'Copied!' : 'Instagram', Icon: InstagramIcon, bg: 'rgba(193,53,132,0.08)', border: 'rgba(193,53,132,0.2)' },
+    { id: 'whatsapp',  label: 'WhatsApp',                        Icon: WhatsAppIcon,  bg: 'rgba(37,211,102,0.1)',  border: 'rgba(37,211,102,0.2)'  },
+    { id: 'x',         label: 'X',                               Icon: XIcon,         bg: 'rgba(255,255,255,0.06)',border: 'rgba(255,255,255,0.1)'  },
+    { id: 'telegram',  label: 'Telegram',                        Icon: TelegramIcon,  bg: 'rgba(34,158,217,0.1)',  border: 'rgba(34,158,217,0.2)'  },
+    { id: 'facebook',  label: 'Facebook',                        Icon: FacebookIcon,  bg: 'rgba(24,119,242,0.1)',  border: 'rgba(24,119,242,0.2)'  },
+    { id: 'instagram', label: copied ? 'Copied!' : 'Instagram',  Icon: InstagramIcon, bg: 'rgba(193,53,132,0.08)', border: 'rgba(193,53,132,0.2)'  },
   ];
 
   return (
@@ -346,7 +345,7 @@ export function MediaCard({ media, onDownload, isPremium = false }) {
           )}
         </button>
 
-        {/* ZONE 1: ExoClick banner (sponsored) below download button */}
+        {/* ExoClick 300×250 banner — zone 5863452 */}
         {!isPremium && (
           <div style={{ marginTop: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
@@ -354,7 +353,7 @@ export function MediaCard({ media, onDownload, isPremium = false }) {
               <span style={{ fontSize: 9, color: '#2e2e3a', letterSpacing: '0.18em', textTransform: 'uppercase' }}>Sponsored</span>
               <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.04)' }} />
             </div>
-            <ExoClickBanner zoneId="5862972" minHeight={250} />
+            <ExoClickBanner zoneId="5863452" />
           </div>
         )}
 

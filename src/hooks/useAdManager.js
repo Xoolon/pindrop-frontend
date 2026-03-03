@@ -1,19 +1,19 @@
 // hooks/useAdManager.js
 // ─────────────────────────────────────────────────────────────────────────────
-// AD_FREQUENCY = 1 → ad shown on EVERY single download (maximum revenue)
-// AD_DURATION  = 10s total, SKIP_AFTER = 5s
+// AD_FREQUENCY: video=1 → ad shown on EVERY download (maximum revenue)
+// AD_DURATION:  10s total overlay, skip button appears at 5s
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 const AD_FREQUENCY = {
-  video: 2,   // every download
+  video: 1, // every download triggers an ad
   image: 1,
   gif:   1,
 };
 
-const AD_DURATION = 10;  // 10 seconds total
-const SKIP_AFTER  = 5;   // skip button appears at 5s
+const AD_DURATION = 10; // seconds total
+const SKIP_AFTER  = 5;  // skip button appears after this many seconds
 
 export function useAdManager() {
   const [adState, setAdState] = useState({
@@ -51,6 +51,7 @@ export function useAdManager() {
       setAdState(prev => ({
         ...prev,
         countdown: remaining,
+        // Skippable once SKIP_AFTER seconds have elapsed
         skippable: remaining <= (AD_DURATION - SKIP_AFTER),
       }));
 
@@ -73,6 +74,7 @@ export function useAdManager() {
   }, [clearAdTimer]);
 
   const gateDownload = useCallback((mediaType, action) => {
+    // Premium users bypass all ads
     if (isPremiumRef.current) { action(); return; }
 
     const type = mediaType === 'gif' ? 'gif' : mediaType === 'video' ? 'video' : 'image';
