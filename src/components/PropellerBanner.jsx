@@ -26,7 +26,7 @@ function ensureExo(cb) {
   document.head.appendChild(s);
 }
 
-export default function PropellerAdCard({ isPremium }) {
+export default function PropellerBanner({ isPremium }) {
   const containerRef = useRef(null);
   const exoRef = useRef(null);
   const [showExo, setShowExo] = useState(false);
