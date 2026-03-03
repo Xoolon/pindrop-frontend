@@ -1,7 +1,9 @@
 // components/PropellerAdCard.jsx
 import { useEffect, useRef, useState } from 'react';
 
-const PROP_ZONE_ID = '10676450'; // <-- REPLACE WITH YOUR ACTUAL DISPLAY ZONE ID
+// ⚠️ REPLACE THIS WITH YOUR ACTUAL PROPELLERADS DISPLAY ZONE ID (300×250)
+const PROP_ZONE_ID = '10676990';   // ← CHANGE THIS
+
 const EXO_ZONE_ID  = '5862972';
 const EXO_ZONE_CLS = 'eas6a97888e10';
 

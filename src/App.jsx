@@ -1,17 +1,5 @@
 // App.jsx — pindr.site
 // ─────────────────────────────────────────────────────────────────────────────
-// Ad network split:
-//   ExoClick  → AdOverlay (VAST video gate), AnchorAd (sticky), AdBanner (top)
-//   PropellerAds → PropellerBanner inside MediaCard (bottom "Sponsored" slot)
-//
-// Rejection fix notes:
-//   1. Removed all placeholder AdSense slot IDs (1111111111) — these were the
-//      most likely cause of "site unavailable" rejections.
-//   2. Every ExoClick zone now uses its correct class name from the tag.
-//   3. ad-provider.js is loaded once via module-level singleton.
-//   4. No multimodal / pop-under PropellerAds — only a clean banner zone.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import AdOverlay       from './components/AdOverlay.jsx';
 import AdBanner        from './components/AdBanner.jsx';
@@ -22,6 +10,7 @@ import FAQSection      from './components/FAQSection.jsx';
 import { PremiumModal }from './components/PremiumModal.jsx';
 import { useAdManager }from './hooks/useAdManager.js';
 import { usePremium }  from './hooks/usePremium.js';
+import PropellerBanner from './components/PropellerBanner.jsx';   // ← ADD THIS
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
