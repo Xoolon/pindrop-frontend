@@ -1,10 +1,16 @@
+// components/MediaCard.jsx
+// ─────────────────────────────────────────────────────────────────────────────
+// Ad placements:
+//   - "Sponsored" card below Download button → PropellerBanner (PropellerAds)
+//   - All other ads (sticky, overlay, top banner) → ExoClick
+// ─────────────────────────────────────────────────────────────────────────────
+
 import React, { useState, useRef, useCallback } from 'react';
-import ExoClickBanner from './ExoClickBanner';
+import PropellerBanner from './PropellerBanner';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-// ── Real SVG brand logos ──────────────────────────────────────────────────────
-
+// ── SVG brand logos ───────────────────────────────────────────────────────────
 function WhatsAppIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="#25D366">
@@ -42,10 +48,10 @@ function InstagramIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="url(#igGrad)">
       <defs>
         <linearGradient id="igGrad" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#FFDC80"/>
-          <stop offset="25%" stopColor="#FCAF45"/>
-          <stop offset="50%" stopColor="#F77737"/>
-          <stop offset="75%" stopColor="#C13584"/>
+          <stop offset="0%"   stopColor="#FFDC80"/>
+          <stop offset="25%"  stopColor="#FCAF45"/>
+          <stop offset="50%"  stopColor="#F77737"/>
+          <stop offset="75%"  stopColor="#C13584"/>
           <stop offset="100%" stopColor="#833AB4"/>
         </linearGradient>
       </defs>
@@ -55,18 +61,17 @@ function InstagramIcon() {
 }
 
 // ── Video Preview Player ──────────────────────────────────────────────────────
-
 function VideoPlayer({ videoUrl, thumbnail, title }) {
-  const videoRef = useRef(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const videoRef      = useRef(null);
+  const [isPlaying,   setIsPlaying]   = useState(false);
+  const [progress,    setProgress]    = useState(0);
+  const [duration,    setDuration]    = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
-  const [volume, setVolume] = useState(1);
-  const [showControls, setShowControls] = useState(true);
+  const [isMuted,     setIsMuted]     = useState(false);
+  const [isLoading,   setIsLoading]   = useState(false);
+  const [hasStarted,  setHasStarted]  = useState(false);
+  const [volume,      setVolume]      = useState(1);
+  const [showControls,setShowControls]= useState(true);
   const controlsTimer = useRef(null);
 
   const proxyUrl = `${API_BASE}/api/preview-video?url=${encodeURIComponent(videoUrl)}`;
@@ -78,27 +83,22 @@ function VideoPlayer({ videoUrl, thumbnail, title }) {
     return `${m}:${sec.toString().padStart(2, '0')}`;
   };
 
-  const handlePlayPause = useCallback(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    if (!hasStarted) setHasStarted(true);
-    if (v.paused) {
-      v.play().catch(console.error);
-      setIsPlaying(true);
-    } else {
-      v.pause();
-      setIsPlaying(false);
-    }
-    resetControlsTimer();
-  }, [hasStarted]);
-
-  const resetControlsTimer = () => {
+  const resetControlsTimer = useCallback(() => {
     clearTimeout(controlsTimer.current);
     setShowControls(true);
     controlsTimer.current = setTimeout(() => {
       if (isPlaying) setShowControls(false);
     }, 3000);
-  };
+  }, [isPlaying]);
+
+  const handlePlayPause = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (!hasStarted) setHasStarted(true);
+    if (v.paused) { v.play().catch(console.error); setIsPlaying(true); }
+    else          { v.pause();                      setIsPlaying(false); }
+    resetControlsTimer();
+  }, [hasStarted, resetControlsTimer]);
 
   const handleTimeUpdate = () => {
     const v = videoRef.current;
@@ -110,20 +110,16 @@ function VideoPlayer({ videoUrl, thumbnail, title }) {
   const handleSeek = (e) => {
     const v = videoRef.current;
     if (!v || !v.duration) return;
-    const rect = e.currentTarget.getBoundingClientRect();
+    const rect  = e.currentTarget.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     v.currentTime = ratio * v.duration;
   };
 
   const handleVolumeChange = (e) => {
-    const v = videoRef.current;
+    const v   = videoRef.current;
     const val = parseFloat(e.target.value);
     setVolume(val);
-    if (v) {
-      v.volume = val;
-      v.muted = val === 0;
-      setIsMuted(val === 0);
-    }
+    if (v) { v.volume = val; v.muted = val === 0; setIsMuted(val === 0); }
   };
 
   const toggleMute = () => {
@@ -133,114 +129,59 @@ function VideoPlayer({ videoUrl, thumbnail, title }) {
     setIsMuted(v.muted);
   };
 
-  const handleMouseMove = () => {
-    if (hasStarted) resetControlsTimer();
-  };
-
   return (
     <div
       style={playerStyles.wrapper}
-      onMouseMove={handleMouseMove}
+      onMouseMove={() => { if (hasStarted) resetControlsTimer(); }}
       onMouseLeave={() => { if (isPlaying) setShowControls(false); }}
     >
-      {/* Thumbnail shown before first play */}
       {!hasStarted && thumbnail && (
         <img src={thumbnail} alt={title} style={playerStyles.thumbnail} />
       )}
-
       <video
         ref={videoRef}
         src={proxyUrl}
         style={{ ...playerStyles.video, opacity: hasStarted ? 1 : 0 }}
         onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={() => {
-          const v = videoRef.current;
-          if (v) setDuration(v.duration);
-        }}
+        onLoadedMetadata={() => { const v = videoRef.current; if (v) setDuration(v.duration); }}
         onWaiting={() => setIsLoading(true)}
         onCanPlay={() => setIsLoading(false)}
         onEnded={() => { setIsPlaying(false); setShowControls(true); }}
-        playsInline
-        preload="metadata"
-        crossOrigin="anonymous"
+        playsInline preload="metadata" crossOrigin="anonymous"
       />
-
-      {/* Loading spinner */}
       {isLoading && hasStarted && (
         <div style={playerStyles.spinnerOverlay}>
           <div style={playerStyles.spinner} />
         </div>
       )}
-
-      {/* Play button overlay */}
       {(!isPlaying || !hasStarted) && (
         <button style={playerStyles.bigPlayBtn} onClick={handlePlayPause}>
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff">
-            <polygon points="5,3 19,12 5,21" />
-          </svg>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="#fff"><polygon points="5,3 19,12 5,21"/></svg>
         </button>
       )}
-
-      {/* Controls bar */}
-      <div style={{
-        ...playerStyles.controls,
-        opacity: showControls || !isPlaying ? 1 : 0,
-        transition: 'opacity 0.3s ease',
-      }}>
-        {/* Progress bar */}
+      <div style={{ ...playerStyles.controls, opacity: showControls || !isPlaying ? 1 : 0, transition: 'opacity 0.3s ease' }}>
         <div style={playerStyles.progressTrack} onClick={handleSeek}>
           <div style={{ ...playerStyles.progressFill, width: `${progress}%` }} />
           <div style={{ ...playerStyles.progressThumb, left: `${progress}%` }} />
         </div>
-
         <div style={playerStyles.controlRow}>
-          {/* Play/pause */}
           <button style={playerStyles.ctrlBtn} onClick={handlePlayPause}>
-            {isPlaying ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5,3 19,12 5,21"/>
-              </svg>
-            )}
+            {isPlaying
+              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+            }
           </button>
-
-          {/* Volume */}
           <button style={playerStyles.ctrlBtn} onClick={toggleMute}>
-            {isMuted || volume === 0 ? (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/>
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="11,5 6,9 2,9 2,15 6,15 11,19" opacity="0.9"/>
-                <path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round"/>
-              </svg>
-            )}
+            {isMuted || volume === 0
+              ? <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/></svg>
+              : <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="11,5 6,9 2,9 2,15 6,15 11,19" opacity="0.9"/><path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round"/></svg>
+            }
           </button>
-
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={isMuted ? 0 : volume}
-            onChange={handleVolumeChange}
-            style={playerStyles.volumeSlider}
-          />
-
-          {/* Time */}
-          <span style={playerStyles.timeLabel}>
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </span>
-
-          {/* Fullscreen */}
-          <button
-            style={{ ...playerStyles.ctrlBtn, marginLeft: 'auto' }}
-            onClick={() => videoRef.current?.requestFullscreen?.()}
-          >
+          <input type="range" min="0" max="1" step="0.05" value={isMuted ? 0 : volume}
+            onChange={handleVolumeChange} style={playerStyles.volumeSlider} />
+          <span style={playerStyles.timeLabel}>{formatTime(currentTime)} / {formatTime(duration)}</span>
+          <button style={{ ...playerStyles.ctrlBtn, marginLeft: 'auto' }}
+            onClick={() => videoRef.current?.requestFullscreen?.()}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
               <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
@@ -254,142 +195,44 @@ function VideoPlayer({ videoUrl, thumbnail, title }) {
 
 const playerStyles = {
   wrapper: {
-    position: 'relative',
-    width: '100%',
-    background: '#000',
-    borderRadius: '14px 14px 0 0',
-    overflow: 'hidden',
-    aspectRatio: '16/9',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'relative', width: '100%', background: '#000',
+    borderRadius: '14px 14px 0 0', overflow: 'hidden',
+    aspectRatio: '16/9', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  thumbnail: {
-    position: 'absolute',
-    inset: 0,
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-  },
-  video: {
-    position: 'absolute',
-    inset: 0,
-    width: '100%',
-    height: '100%',
-    objectFit: 'contain',
-    background: '#000',
-  },
-  spinnerOverlay: {
-    position: 'absolute',
-    inset: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'rgba(0,0,0,0.4)',
-  },
-  spinner: {
-    width: '40px',
-    height: '40px',
-    border: '3px solid rgba(255,255,255,0.2)',
-    borderTopColor: '#fff',
-    borderRadius: '50%',
-    animation: 'spin 0.7s linear infinite',
-  },
+  thumbnail: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' },
+  video: { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', background: '#000' },
+  spinnerOverlay: { position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)' },
+  spinner: { width: '40px', height: '40px', border: '3px solid rgba(255,255,255,0.2)', borderTopColor: '#fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite' },
   bigPlayBtn: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '64px',
-    height: '64px',
-    background: 'rgba(220, 38, 38, 0.9)',
-    backdropFilter: 'blur(8px)',
-    border: '2px solid rgba(255,255,255,0.2)',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    boxShadow: '0 8px 32px rgba(220,38,38,0.5)',
-    transition: 'transform 0.15s ease, background 0.15s ease',
-    zIndex: 10,
+    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+    width: '64px', height: '64px',
+    background: 'rgba(220, 38, 38, 0.9)', backdropFilter: 'blur(8px)',
+    border: '2px solid rgba(255,255,255,0.2)', borderRadius: '50%',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer', boxShadow: '0 8px 32px rgba(220,38,38,0.5)', zIndex: 10,
+    transition: 'transform 0.15s ease',
   },
   controls: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
     padding: '32px 12px 12px',
     background: 'linear-gradient(transparent, rgba(0,0,0,0.75))',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-    zIndex: 10,
+    display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 10,
   },
-  progressTrack: {
-    position: 'relative',
-    width: '100%',
-    height: '4px',
-    background: 'rgba(255,255,255,0.2)',
-    borderRadius: '4px',
-    cursor: 'pointer',
-  },
-  progressFill: {
-    height: '100%',
-    background: '#E60023',
-    borderRadius: '4px',
-    transition: 'width 0.1s linear',
-  },
-  progressThumb: {
-    position: 'absolute',
-    top: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '12px',
-    height: '12px',
-    background: '#fff',
-    borderRadius: '50%',
-    boxShadow: '0 0 4px rgba(0,0,0,0.5)',
-    pointerEvents: 'none',
-  },
-  controlRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  ctrlBtn: {
-    background: 'none',
-    border: 'none',
-    color: '#fff',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    padding: '4px',
-    borderRadius: '4px',
-    opacity: 0.9,
-    transition: 'opacity 0.15s',
-    flexShrink: 0,
-  },
-  volumeSlider: {
-    width: '64px',
-    height: '3px',
-    cursor: 'pointer',
-    accentColor: '#E60023',
-  },
-  timeLabel: {
-    fontSize: '11px',
-    color: 'rgba(255,255,255,0.8)',
-    fontFamily: 'DM Mono, monospace',
-    whiteSpace: 'nowrap',
-  },
+  progressTrack: { position: 'relative', width: '100%', height: '4px', background: 'rgba(255,255,255,0.2)', borderRadius: '4px', cursor: 'pointer' },
+  progressFill: { height: '100%', background: '#E60023', borderRadius: '4px', transition: 'width 0.1s linear' },
+  progressThumb: { position: 'absolute', top: '50%', transform: 'translate(-50%, -50%)', width: '12px', height: '12px', background: '#fff', borderRadius: '50%', boxShadow: '0 0 4px rgba(0,0,0,0.5)', pointerEvents: 'none' },
+  controlRow: { display: 'flex', alignItems: 'center', gap: '8px' },
+  ctrlBtn: { background: 'none', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px', borderRadius: '4px', opacity: 0.9, transition: 'opacity 0.15s', flexShrink: 0 },
+  volumeSlider: { width: '64px', height: '3px', cursor: 'pointer', accentColor: '#E60023' },
+  timeLabel: { fontSize: '11px', color: 'rgba(255,255,255,0.8)', fontFamily: 'DM Mono, monospace', whiteSpace: 'nowrap' },
 };
 
 // ── MediaCard ─────────────────────────────────────────────────────────────────
-
-export function MediaCard({ media, onDownload }) {
-  const { type, url, thumbnail, title, size, quality, width, height } = media;
+export function MediaCard({ media, onDownload, isPremium = false }) {
+  const { type, url, thumbnail, title, size, quality } = media;
   const [isDownloading, setIsDownloading] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copied,        setCopied]        = useState(false);
 
   const proxyThumb = thumbnail
     ? `${API_BASE}/api/proxy-image?url=${encodeURIComponent(thumbnail)}`
@@ -397,7 +240,6 @@ export function MediaCard({ media, onDownload }) {
 
   const handleDownloadClick = async () => {
     if (isDownloading) return;
-
     const downloadUrl = `${API_BASE}/api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(title || 'pindrop_video')}`;
 
     onDownload(type, async () => {
@@ -405,25 +247,22 @@ export function MediaCard({ media, onDownload }) {
       try {
         const response = await fetch(downloadUrl);
         if (!response.ok) throw new Error('Download failed');
-        const blob = await response.blob();
+        const blob    = await response.blob();
         const blobUrl = window.URL.createObjectURL(blob);
 
         let filename = 'pindrop_video.mp4';
         const cd = response.headers.get('Content-Disposition');
         if (cd) {
           const match = cd.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-          if (match && match[1]) filename = match[1].replace(/['"]/g, '');
+          if (match?.[1]) filename = match[1].replace(/['"]/g, '');
         }
 
         const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        a.href = blobUrl; a.download = filename;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
         window.URL.revokeObjectURL(blobUrl);
 
-        // Save to history
+        // History
         try {
           const history = JSON.parse(localStorage.getItem('pindrop_history') || '[]');
           history.unshift({ timestamp: Date.now(), title: title || 'Pinterest Video', url, thumbnail });
@@ -438,74 +277,49 @@ export function MediaCard({ media, onDownload }) {
   };
 
   const shareOn = (platform) => {
-    const shareUrl = url;
     const text = title || 'Check out this video';
     let link = '';
     switch (platform) {
-      case 'whatsapp':
-        link = `https://wa.me/?text=${encodeURIComponent(text + ' ' + shareUrl)}`;
-        break;
-      case 'x':
-        link = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
-        break;
-      case 'telegram':
-        link = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`;
-        break;
-      case 'facebook':
-        link = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-        break;
+      case 'whatsapp':  link = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`; break;
+      case 'x':         link = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`; break;
+      case 'telegram':  link = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`; break;
+      case 'facebook':  link = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`; break;
       case 'instagram':
-        // Instagram doesn't support URL sharing, copy link instead
-        navigator.clipboard.writeText(shareUrl).catch(() => {});
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-        return;
-      default:
-        return;
+        navigator.clipboard.writeText(url).catch(() => {});
+        setCopied(true); setTimeout(() => setCopied(false), 2000); return;
+      default: return;
     }
     window.open(link, '_blank', 'noopener');
   };
 
   const sharePlatforms = [
-    { id: 'whatsapp', label: 'WhatsApp', Icon: WhatsAppIcon, bg: 'rgba(37,211,102,0.1)', border: 'rgba(37,211,102,0.2)' },
-    { id: 'x', label: 'X', Icon: XIcon, bg: 'rgba(255,255,255,0.06)', border: 'rgba(255,255,255,0.1)' },
-    { id: 'telegram', label: 'Telegram', Icon: TelegramIcon, bg: 'rgba(34,158,217,0.1)', border: 'rgba(34,158,217,0.2)' },
-    { id: 'facebook', label: 'Facebook', Icon: FacebookIcon, bg: 'rgba(24,119,242,0.1)', border: 'rgba(24,119,242,0.2)' },
+    { id: 'whatsapp',  label: 'WhatsApp',           Icon: WhatsAppIcon,  bg: 'rgba(37,211,102,0.1)',  border: 'rgba(37,211,102,0.2)'  },
+    { id: 'x',         label: 'X',                  Icon: XIcon,         bg: 'rgba(255,255,255,0.06)',border: 'rgba(255,255,255,0.1)'  },
+    { id: 'telegram',  label: 'Telegram',            Icon: TelegramIcon,  bg: 'rgba(34,158,217,0.1)',  border: 'rgba(34,158,217,0.2)'  },
+    { id: 'facebook',  label: 'Facebook',            Icon: FacebookIcon,  bg: 'rgba(24,119,242,0.1)',  border: 'rgba(24,119,242,0.2)'  },
     { id: 'instagram', label: copied ? 'Copied!' : 'Instagram', Icon: InstagramIcon, bg: 'rgba(193,53,132,0.08)', border: 'rgba(193,53,132,0.2)' },
   ];
 
   return (
     <div style={cardStyles.card}>
-      {/* Video Player */}
       <VideoPlayer videoUrl={url} thumbnail={proxyThumb} title={title} />
 
-      {/* Info section */}
       <div style={cardStyles.body}>
-        {/* Title */}
         <h3 style={cardStyles.title}>{title || 'Pinterest Video'}</h3>
 
-        {/* Meta chips */}
         <div style={cardStyles.metaRow}>
-          <span style={cardStyles.chip}>
-            <span style={cardStyles.chipDot} />
-            Video
-          </span>
-          {size && <span style={cardStyles.chip}>📦 {size}</span>}
+          <span style={cardStyles.chip}><span style={cardStyles.chipDot} />Video</span>
+          {size    && <span style={cardStyles.chip}>📦 {size}</span>}
           {quality && quality !== 'Original' && <span style={cardStyles.chip}>🖥 {quality}</span>}
           {quality === 'Original' && <span style={cardStyles.chip}>✦ Best Quality</span>}
         </div>
 
-        {/* Share section */}
         <div style={cardStyles.shareSection}>
           <span style={cardStyles.shareLabel}>Share</span>
           <div style={cardStyles.shareRow}>
             {sharePlatforms.map(({ id, label, Icon, bg, border }) => (
-              <button
-                key={id}
-                onClick={() => shareOn(id)}
-                title={`Share on ${label}`}
-                style={{ ...cardStyles.shareBtn, background: bg, borderColor: border }}
-              >
+              <button key={id} onClick={() => shareOn(id)} title={`Share on ${label}`}
+                style={{ ...cardStyles.shareBtn, background: bg, borderColor: border }}>
                 <Icon />
                 <span style={cardStyles.shareBtnLabel}>{label}</span>
               </button>
@@ -513,21 +327,13 @@ export function MediaCard({ media, onDownload }) {
           </div>
         </div>
 
-        {/* Download button */}
         <button
           onClick={handleDownloadClick}
           disabled={isDownloading}
-          style={{
-            ...cardStyles.downloadBtn,
-            opacity: isDownloading ? 0.7 : 1,
-            cursor: isDownloading ? 'not-allowed' : 'pointer',
-          }}
+          style={{ ...cardStyles.downloadBtn, opacity: isDownloading ? 0.7 : 1, cursor: isDownloading ? 'not-allowed' : 'pointer' }}
         >
           {isDownloading ? (
-            <>
-              <span style={cardStyles.btnSpinner} />
-              Downloading…
-            </>
+            <><span style={cardStyles.btnSpinner} />Downloading…</>
           ) : (
             <>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -540,10 +346,8 @@ export function MediaCard({ media, onDownload }) {
           )}
         </button>
 
-        {/* Banner below download button */}
-<div style={{ marginTop: '20px' }}>
-  <ExoClickBanner zoneId="5862972" />
-</div>
+        {/* ── PropellerAds banner — "Sponsored" slot below download button ── */}
+        {!isPremium && <PropellerBanner isPremium={isPremium} />}
 
         <p style={cardStyles.disclaimer}>
           Free download · No watermark · Original quality
@@ -557,123 +361,51 @@ const cardStyles = {
   card: {
     background: 'linear-gradient(145deg, #16161a, #111115)',
     border: '1px solid rgba(255,255,255,0.09)',
-    borderRadius: '18px',
-    overflow: 'hidden',
+    borderRadius: '18px', overflow: 'hidden',
     boxShadow: '0 24px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(230,0,35,0.04)',
-    maxWidth: '540px',
-    width: '100%',
+    maxWidth: '540px', width: '100%',
   },
-  body: {
-    padding: '20px 20px 24px',
-  },
+  body:       { padding: '20px 20px 24px' },
   title: {
-    fontSize: '15px',
-    fontWeight: 600,
-    color: '#ededf0',
-    fontFamily: 'DM Sans, sans-serif',
-    lineHeight: 1.5,
-    marginBottom: '12px',
-    display: '-webkit-box',
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: 'vertical',
-    overflow: 'hidden',
+    fontSize: '15px', fontWeight: 600, color: '#ededf0',
+    fontFamily: 'DM Sans, sans-serif', lineHeight: 1.5, marginBottom: '12px',
+    display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
   },
-  metaRow: {
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap',
-    marginBottom: '18px',
-  },
+  metaRow:    { display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '18px' },
   chip: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '5px',
-    fontSize: '11px',
-    color: '#888897',
-    background: 'rgba(255,255,255,0.04)',
-    border: '1px solid rgba(255,255,255,0.07)',
-    borderRadius: '100px',
-    padding: '3px 10px',
-    fontFamily: 'DM Sans, sans-serif',
+    display: 'inline-flex', alignItems: 'center', gap: '5px',
+    fontSize: '11px', color: '#888897',
+    background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: '100px', padding: '3px 10px', fontFamily: 'DM Sans, sans-serif',
   },
-  chipDot: {
-    width: '5px',
-    height: '5px',
-    borderRadius: '50%',
-    background: '#22c55e',
-    boxShadow: '0 0 6px #22c55e',
-    display: 'inline-block',
-  },
-  shareSection: {
-    marginBottom: '16px',
-  },
+  chipDot: { width: '5px', height: '5px', borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e', display: 'inline-block' },
+  shareSection: { marginBottom: '16px' },
   shareLabel: {
-    display: 'block',
-    fontSize: '10px',
-    fontWeight: 700,
-    fontFamily: 'Syne, sans-serif',
-    letterSpacing: '0.15em',
-    textTransform: 'uppercase',
-    color: '#555560',
-    marginBottom: '8px',
+    display: 'block', fontSize: '10px', fontWeight: 700,
+    fontFamily: 'Syne, sans-serif', letterSpacing: '0.15em', textTransform: 'uppercase',
+    color: '#555560', marginBottom: '8px',
   },
-  shareRow: {
-    display: 'flex',
-    gap: '6px',
-    flexWrap: 'wrap',
-  },
+  shareRow:   { display: 'flex', gap: '6px', flexWrap: 'wrap' },
   shareBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '5px',
-    padding: '7px 10px',
-    border: '1px solid',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    transition: 'transform 0.15s ease, filter 0.15s ease',
-    flex: '1 1 80px',
-    minWidth: '70px',
-    justifyContent: 'center',
+    display: 'flex', alignItems: 'center', gap: '5px',
+    padding: '7px 10px', border: '1px solid', borderRadius: '8px',
+    cursor: 'pointer', transition: 'transform 0.15s ease',
+    flex: '1 1 80px', minWidth: '70px', justifyContent: 'center',
   },
-  shareBtnLabel: {
-    fontSize: '11px',
-    fontFamily: 'DM Sans, sans-serif',
-    fontWeight: 600,
-    color: '#b0b0be',
-    whiteSpace: 'nowrap',
-  },
+  shareBtnLabel: { fontSize: '11px', fontFamily: 'DM Sans, sans-serif', fontWeight: 600, color: '#b0b0be', whiteSpace: 'nowrap' },
   downloadBtn: {
-    width: '100%',
-    padding: '14px',
+    width: '100%', padding: '14px',
     background: 'linear-gradient(135deg, #E60023 0%, #c0001d 100%)',
-    border: 'none',
-    borderRadius: '12px',
-    color: '#fff',
-    fontSize: '15px',
-    fontWeight: 700,
-    fontFamily: 'Syne, sans-serif',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '9px',
-    boxShadow: '0 6px 24px rgba(230,0,35,0.35)',
-    transition: 'opacity 0.2s, transform 0.15s',
+    border: 'none', borderRadius: '12px', color: '#fff',
+    fontSize: '15px', fontWeight: 700, fontFamily: 'Syne, sans-serif',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '9px',
+    boxShadow: '0 6px 24px rgba(230,0,35,0.35)', transition: 'opacity 0.2s, transform 0.15s',
     marginBottom: '10px',
   },
   btnSpinner: {
-    display: 'inline-block',
-    width: '16px',
-    height: '16px',
-    border: '2px solid rgba(255,255,255,0.3)',
-    borderTopColor: '#fff',
-    borderRadius: '50%',
-    animation: 'spin 0.7s linear infinite',
+    display: 'inline-block', width: '16px', height: '16px',
+    border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff',
+    borderRadius: '50%', animation: 'spin 0.7s linear infinite',
   },
-  disclaimer: {
-    textAlign: 'center',
-    fontSize: '11px',
-    color: '#3a3a46',
-    fontFamily: 'DM Sans, sans-serif',
-    margin: 0,
-  },
+  disclaimer: { textAlign: 'center', fontSize: '11px', color: '#3a3a46', fontFamily: 'DM Sans, sans-serif', margin: 0 },
 };
