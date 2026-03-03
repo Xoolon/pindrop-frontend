@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import AdOverlay from './components/AdOverlay.jsx';
 import AdBanner from './components/AdBanner.jsx';
 import { MediaCard } from './components/MediaCard.jsx';
-import { ExoClickBanner } from './components/ExoClickBanner.jsx';
+import ExoClickBanner from './components/ExoClickBanner.jsx';
 import { DownloadHistory } from './components/DownloadHistory.jsx';
 import FAQSection from './components/FAQSection.jsx';
 import { PremiumModal } from './components/PremiumModal.jsx';
