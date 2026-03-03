@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import AdOverlay from './components/AdOverlay.jsx';
 import AdBanner from './components/AdBanner.jsx';
 import { MediaCard } from './components/MediaCard.jsx';
+import { ExoClickBanner } from './components/ExoClickBanner.jsx';
 import { DownloadHistory } from './components/DownloadHistory.jsx';
 import FAQSection from './components/FAQSection.jsx';
 import { PremiumModal } from './components/PremiumModal.jsx';
@@ -498,12 +499,12 @@ export default function App() {
           </section>
         )}
 
-        {/* Post-result ad — hidden for premium */}
-        {status === 'success' && !isPremium && (
-          <div className="container" style={{ marginBottom: 'clamp(40px,8vw,60px)' }}>
-            <AdBanner slot="bottom" format="responsive" isPremium={isPremium} />
-          </div>
-        )}
+      {/* Post-result ad — hidden for premium */}
+{status === 'success' && !isPremium && (
+  <div className="container" style={{ marginBottom: 'clamp(40px,8vw,60px)' }}>
+    <ExoClickBanner zoneId="5862972" />
+  </div>
+)}
 
         {/* How it works */}
         <div className="container">
@@ -536,6 +537,7 @@ export default function App() {
             </div>
           </div>
         </footer>
+       {!isPremium && <AnchorAd zoneId="5862978" />}
       </main>
     </>
   );

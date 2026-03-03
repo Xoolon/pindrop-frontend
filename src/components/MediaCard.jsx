@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
+import ExoClickBanner from './ExoClickBanner';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -538,6 +539,11 @@ export function MediaCard({ media, onDownload }) {
             </>
           )}
         </button>
+
+        {/* Banner below download button */}
+<div style={{ marginTop: '20px' }}>
+  <ExoClickBanner zoneId="5862972" />
+</div>
 
         <p style={cardStyles.disclaimer}>
           Free download · No watermark · Original quality
