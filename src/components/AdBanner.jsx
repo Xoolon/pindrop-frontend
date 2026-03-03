@@ -1,58 +1,47 @@
 // components/AdBanner.jsx
 // ─────────────────────────────────────────────────────────────────────────────
-// Top-of-page sponsored banner for pindr.site.
-// Uses ExoClick zone 5863000 (300×250 or whatever size you configured).
-// Premium users: pass isPremium={true} to suppress rendering.
-//
-// NOTE: The old AdSense <ins class="adsbygoogle"> version was using placeholder
-// slot IDs (1111111111) which will never fill and can trigger policy flags.
-// This version uses the real ExoClick tag instead.
+// Renders a Google AdSense banner unit.
+// Premium users: pass isPremium={true} to suppress rendering entirely.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-let providerScriptInjected = false;
-function ensureProviderScript() {
-  if (providerScriptInjected) return;
-  if (document.querySelector('script[src="https://a.magsrv.com/ad-provider.js"]')) {
-    providerScriptInjected = true; return;
-  }
-  const s = document.createElement('script');
-  s.src   = 'https://a.magsrv.com/ad-provider.js';
-  s.async = true;
-  s.type  = 'application/javascript';
-  document.head.appendChild(s);
-  providerScriptInjected = true;
-}
+const PUBLISHER_ID = 'ca-pub-9505934511045266'; // ← your real publisher ID
 
-// Top banner zone for pindr.site — add your real zone here
-const TOP_ZONE_ID    = '5863000';     // ← your ExoClick top banner zone ID
-const TOP_ZONE_CLASS = 'eas6a97888e2';// ← matching class from ExoClick tag
+// Replace slot values with real AdSense ad unit slot IDs
+const AD_SLOTS = {
+  top:    '1111111111',  // ← create in AdSense → Ads → By ad unit
+  bottom: '4218418628',  // ← already in your app.jsx
+};
 
-export default function AdBanner({ isPremium = false }) {
-  const containerRef = useRef(null);
-  const injected     = useRef(false);
+export default function AdBanner({ slot = 'top', format = 'responsive', isPremium = false }) {
+  const adRef  = useRef(null);
+  const pushed = useRef(false);
+  const [loaded, setLoaded] = useState(false);
 
+  // Don't render at all for premium users
   if (isPremium) return null;
 
+  const slotId      = AD_SLOTS[slot] || slot;
+  const isLeader    = format === 'horizontal';
+  const minHeight   = isLeader ? 90 : 250;
+
   useEffect(() => {
-    if (injected.current || !containerRef.current) return;
-    injected.current = true;
+    if (pushed.current) return;
+    pushed.current = true;
 
-    ensureProviderScript();
+    const t = setTimeout(() => {
+      try {
+        if (typeof window !== 'undefined') {
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+          setLoaded(true);
+        }
+      } catch (e) {
+        console.debug('[AdBanner] AdSense not available:', e.message);
+      }
+    }, 150);
 
-    const ins = document.createElement('ins');
-    ins.className = TOP_ZONE_CLASS;
-    ins.setAttribute('data-zoneid', TOP_ZONE_ID);
-    ins.style.display = 'inline-block';
-    ins.style.width   = '300px';
-    ins.style.height  = '250px';
-    containerRef.current.appendChild(ins);
-
-    const serveScript = document.createElement('script');
-    serveScript.type        = 'application/javascript';
-    serveScript.textContent = `(AdProvider = window.AdProvider || []).push({"serve": {}});`;
-    containerRef.current.appendChild(serveScript);
+    return () => clearTimeout(t);
   }, []);
 
   return (
@@ -61,11 +50,24 @@ export default function AdBanner({ isPremium = false }) {
         <span style={styles.label}>Sponsored</span>
         <div style={styles.divider} />
       </div>
-      <div style={styles.adBox}>
-        <div
-          ref={containerRef}
-          style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '250px', width: '100%' }}
+
+      <div style={{ ...styles.adBox, minHeight }}>
+        <ins
+          ref={adRef}
+          className="adsbygoogle"
+          style={{ display: 'block', width: '100%', minHeight }}
+          data-ad-client={PUBLISHER_ID}
+          data-ad-slot={slotId}
+          data-ad-format={format === 'responsive' ? 'auto' : isLeader ? 'horizontal' : 'rectangle'}
+          data-full-width-responsive="true"
         />
+
+        {!loaded && (
+          <div style={styles.placeholder}>
+            <span style={styles.placeholderIcon}>◈</span>
+            <span style={styles.placeholderText}>Advertisement</span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -93,7 +95,16 @@ const styles = {
     background: 'rgba(255,255,255,0.015)',
     border: '1px dashed rgba(255,255,255,0.05)',
     borderRadius: '12px', overflow: 'hidden',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    minHeight: '250px',
+    position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  },
+  placeholder: {
+    position: 'absolute', inset: 0,
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center', gap: '8px', pointerEvents: 'none',
+  },
+  placeholderIcon:  { fontSize: '22px', color: '#242430' },
+  placeholderText: {
+    fontSize: '10px', color: '#242430', fontFamily: 'DM Sans, sans-serif',
+    letterSpacing: '0.12em', textTransform: 'uppercase',
   },
 };

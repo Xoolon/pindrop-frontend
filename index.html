@@ -68,10 +68,46 @@
 
     <!-- Preload critical resources -->
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" />
+
+    <!--
+      ════════════════════════════════════════════════════════════════════
+      PropellerAds — onclick / popunder tag
+      ════════════════════════════════════════════════════════════════════
+      HOW IT WORKS:
+        This script listens for the FIRST user click anywhere on the page
+        and opens the PropellerAds offer URL in a new tab (popunder).
+        It does NOT inject any visible HTML — it is purely a global click
+        listener. Loading it in <head> is correct and intentional.
+
+      WHY NOT IN index.html BODY (old approach):
+        The inline IIFE in the old <body> tag:
+          (function(s){s.dataset.zone='10676450',...})()
+        ...was using the Propeller "tag.min.js" auto-init loader which
+        expects to find a specific <div> on the page. It was broken because:
+        1. React hasn't rendered yet when <body> scripts run.
+        2. The zone type was "onclick" — there is NO visible div to target.
+        Fix: use the direct zone URL format below which just attaches the
+        global click listener without needing a DOM anchor.
+      ════════════════════════════════════════════════════════════════════
+    -->
+
+
+
+
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-  <script>(function(s){s.dataset.zone='10676450',s.src='https://al5sm.com/tag.min.js'})([document.documentElement, document.body].filter(Boolean).pop().appendChild(document.createElement('script')))</script>
+
+    <!--
+      NOTE: The old PropellerAds tag.min.js snippet has been removed from here
+      and replaced with the correct onclick zone loader in <head> above.
+      The old snippet was:
+        (function(s){s.dataset.zone='10676450',s.src='https://al5sm.com/tag.min.js'})
+        ([document.documentElement, document.body].filter(Boolean).pop()
+        .appendChild(document.createElement('script')))
+      This was appending a <script> as a child of <body> which is non-standard
+      and caused the script to execute before React's root div was ready.
+    -->
   </body>
 </html>

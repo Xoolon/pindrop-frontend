@@ -396,6 +396,7 @@ export default function App() {
                 {/* PropellerAds banner is rendered inside MediaCard */}
                 <MediaCard media={media} onDownload={handleDownload} isPremium={isPremium} />
               </div>
+               {!isPremium && <PropellerAdCard isPremium={isPremium} />}
             </div>
           </section>
         )}

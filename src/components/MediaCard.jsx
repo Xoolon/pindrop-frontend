@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useState, useRef, useCallback } from 'react';
-import PropellerBanner from './PropellerBanner';
+import ExoClickBanner from './ExoClickBanner.jsx';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
@@ -346,8 +346,17 @@ export function MediaCard({ media, onDownload, isPremium = false }) {
           )}
         </button>
 
-        {/* ── PropellerAds banner — "Sponsored" slot below download button ── */}
-        {!isPremium && <PropellerBanner isPremium={isPremium} />}
+       // Inside MediaCard, after the Download button
+{!isPremium && (
+  <div style={{ marginTop: 16 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+      <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.04)' }} />
+      <span style={{ fontSize: 9, color: '#2e2e3a', letterSpacing: '0.18em', textTransform: 'uppercase' }}>Sponsored</span>
+      <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.04)' }} />
+    </div>
+    <ExoClickBanner zoneId="5862972" minHeight={250} />
+  </div>
+)}
 
         <p style={cardStyles.disclaimer}>
           Free download · No watermark · Original quality

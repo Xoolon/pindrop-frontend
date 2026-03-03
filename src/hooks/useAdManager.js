@@ -7,7 +7,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 const AD_FREQUENCY = {
-  video: 1,   // every download
+  video: 2,   // every download
   image: 1,
   gif:   1,
 };
